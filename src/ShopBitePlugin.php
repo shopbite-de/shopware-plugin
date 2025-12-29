@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace ShopBite;
 
 use Override;
+
+use function Psl\Type\instance_of;
+
 use ShopBite\Service\CustomFieldsInstaller;
 use Shopware\Core\Framework\Plugin;
 use Shopware\Core\Framework\Plugin\Context\ActivateContext;
@@ -47,7 +50,7 @@ final class ShopBitePlugin extends Plugin
     private function getCustomFieldsInstaller(): CustomFieldsInstaller
     {
         if ($this->container->has(CustomFieldsInstaller::class)) {
-            return $this->container->get(CustomFieldsInstaller::class);
+            return instance_of(CustomFieldsInstaller::class)->coerce($this->container->get(CustomFieldsInstaller::class));
         }
 
         return new CustomFieldsInstaller(

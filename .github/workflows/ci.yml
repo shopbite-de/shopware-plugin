@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         php-version: ['8.4']
-        shopware-version: ['6.7.0']
+        shopware-version: ['6.7.5.1']
 
     steps:
       - name: Checkout
@@ -30,8 +30,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          composer require shopware/core:${{ matrix.shopware-version }} --no-interaction --no-update
-          composer install --no-interaction --no-progress
+          composer config audit.block-insecure false
+          composer require shopware/core:${{ matrix.shopware-version }} --no-interaction --no-progress --with-all-dependencies
 
       - name: PHP CS Fixer check
         run: make cs-check

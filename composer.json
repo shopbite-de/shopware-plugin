@@ -21,15 +21,15 @@
         }
     ],
     "extra": {
-        "shopware-plugin-class": "ShopBitePlugin",
+        "shopware-plugin-class": "ShopBite\\ShopBitePlugin",
         "label": {
-            "de-DE": "Holabe Core Plugin",
-            "en-GB": "Holabe Core Plugin"
+            "de-DE": "ShopBite",
+            "en-GB": "ShopBite"
         }
     },
     "require": {
-        "php": "^8.4",
-        "shopware/core": "~6.7.0",
+        "php": "^8.3",
+        "shopware/core": "~6.6.0 || ~6.7.0",
         "azjezz/psl": "^4.2"
     },
 

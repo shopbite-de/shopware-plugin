@@ -1,0 +1,12 @@
+vendor
+node_modules
+.git
+.idea
+.php-cs-fixer.cache
+.phpunit.result.cache
+.env
+.env.local
+public/bundles
+public/bundles
+var/cache
+var/log

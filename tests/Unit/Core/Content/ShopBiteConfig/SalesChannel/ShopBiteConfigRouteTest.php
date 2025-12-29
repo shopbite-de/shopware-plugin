@@ -23,8 +23,8 @@ class ShopBiteConfigRouteTest extends TestCase
         $systemConfigService = $this->createMock(SystemConfigService::class);
         $systemConfigService->method('get')
             ->willReturnMap([
-                ['ShopBite.config.isCheckoutEnabled', 'sales-channel-id', true],
-                ['ShopBite.config.defaultDeliveryTime', 'sales-channel-id', 24],
+                ['ShopBitePlugin.config.isCheckoutEnabled', 'sales-channel-id', true],
+                ['ShopBitePlugin.config.defaultDeliveryTime', 'sales-channel-id', 24],
             ]);
 
         $context = $this->createMock(SalesChannelContext::class);

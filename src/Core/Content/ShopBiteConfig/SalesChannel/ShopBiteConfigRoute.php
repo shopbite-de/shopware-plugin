@@ -35,8 +35,8 @@ class ShopBiteConfigRoute
     )]
     public function load(SalesChannelContext $context): ShopBiteConfigRouteResponse
     {
-        $isCheckoutEnabled = $this->systemConfigService->get('ShopBite.config.isCheckoutEnabled', $context->getSalesChannelId());
-        $defaultDeliveryTime = $this->systemConfigService->get('ShopBite.config.defaultDeliveryTime', $context->getSalesChannelId());
+        $isCheckoutEnabled = $this->systemConfigService->get('ShopBitePlugin.config.isCheckoutEnabled', $context->getSalesChannelId());
+        $defaultDeliveryTime = $this->systemConfigService->get('ShopBitePlugin.config.defaultDeliveryTime', $context->getSalesChannelId());
 
         $isCheckoutEnabled = bool()->coerce($isCheckoutEnabled);
         $defaultDeliveryTime = positive_int()->coerce($defaultDeliveryTime);
