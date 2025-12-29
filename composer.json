@@ -2,7 +2,6 @@
     "name": "shopbite-de/shopware-plugin",
     "description": "Shopware 6 Plugin for ShopBite Storefront",
     "type": "shopware-platform-plugin",
-    "version": "1.0.0",
     "license": "MIT",
     "autoload": {
         "psr-4": {
