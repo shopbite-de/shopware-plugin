@@ -11,7 +11,7 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Shopbite\\Tests\\": "tests/"
+            "ShopBite\\Tests\\": "tests/"
         }
     },
     "authors": [
@@ -29,7 +29,8 @@
     },
     "require": {
         "php": "^8.4",
-        "shopware/core": "~6.7.0"
+        "shopware/core": "~6.7.0",
+        "azjezz/psl": "^4.2"
     },
 
     "config": {
@@ -38,6 +39,9 @@
         }
     },
     "require-dev": {
-        "phpunit/phpunit": "^12.5"
+        "phpunit/phpunit": "^12.5",
+        "friendsofphp/php-cs-fixer": "^3.92",
+        "vimeo/psalm": "^6.14",
+        "php-standard-library/psalm-plugin": "^2.3"
     }
 }

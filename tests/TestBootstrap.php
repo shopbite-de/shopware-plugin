@@ -2,13 +2,6 @@
 
 declare(strict_types=1);
 
-use Shopware\Core\TestBootstrapper;
 
-$loader = (new TestBootstrapper())
-    ->addCallingPlugin()
-    ->addActivePlugins('ShopBite')
-    ->setForceInstallPlugins(true)
-    ->bootstrap()
-    ->getClassLoader();
-
+$loader = require __DIR__ . '/../vendor/autoload.php';
 $loader->addPsr4('ShopBite\\Tests\\', __DIR__);

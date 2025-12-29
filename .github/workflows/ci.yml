@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  check:
+    name: PHP ${{ matrix.php-version }} - Shopware ${{ matrix.shopware-version }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['8.4']
+        shopware-version: ['6.7.0']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: dom, curl, libxml, mbstring, zip, pdo, sqlite, pdo_sqlite, bcmath, gd, intl, mysql, mysqli, pdo_mysql
+          coverage: none
+
+      - name: Install dependencies
+        run: |
+          composer require shopware/core:${{ matrix.shopware-version }} --no-interaction --no-update
+          composer install --no-interaction --no-progress
+
+      - name: PHP CS Fixer check
+        run: make cs-check
+
+      - name: Psalm static analysis
+        run: make psalm
+
+      - name: Run tests
+        run: make test
