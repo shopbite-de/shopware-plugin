@@ -19,13 +19,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/ShopBiteConfig"
-                    }
-                  },
-                  "required": ["data"]
+                  "$ref": "#/components/schemas/ShopBiteConfig"
                 }
               }
             }
