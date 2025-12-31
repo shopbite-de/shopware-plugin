@@ -1,0 +1,33 @@
+{
+    "shopbite-business-hour": {
+        "general": {
+            "mainMenuItemGeneral": "Business Hours",
+            "descriptionText": "Manage business hours for your sales channels."
+        },
+        "list": {
+            "columnDayOfWeek": "Day of week",
+            "columnOpeningTime": "Opening time",
+            "columnClosingTime": "Closing time",
+            "columnSalesChannel": "Sales Channel",
+            "buttonAdd": "Add business hour"
+        },
+        "detail": {
+            "labelSalesChannel": "Sales Channel",
+            "labelDayOfWeek": "Day of week",
+            "labelOpeningTime": "Opening time",
+            "labelClosingTime": "Closing time",
+            "buttonSave": "Save",
+            "buttonCancel": "Cancel",
+            "errorTitle": "Error"
+        },
+        "days": {
+            "monday": "Monday",
+            "tuesday": "Tuesday",
+            "wednesday": "Wednesday",
+            "thursday": "Thursday",
+            "friday": "Friday",
+            "saturday": "Saturday",
+            "sunday": "Sunday"
+        }
+    }
+}

@@ -1,0 +1,30 @@
+<sw-page class="shopbite-business-hour-list">
+    <template #smart-bar-actions>
+        <sw-button variant="primary" :routerLink="{ name: 'shopbite.business.hour.create' }">
+            {{ $tc('shopbite-business-hour.list.buttonAdd') }}
+        </sw-button>
+    </template>
+
+    <template #content>
+        <sw-entity-listing
+            v-if="businessHours"
+            :items="businessHours"
+            :repository="businessHourRepository"
+            :showSelection="false"
+            :columns="columns"
+            :isLoading="isLoading"
+        >
+            <template #column-dayOfWeek="{ item }">
+                {{ getDayName(item.dayOfWeek) }}
+            </template>
+
+            <template #column-openingTime="{ item }">
+                {{ item.openingTime }}
+            </template>
+
+            <template #column-closingTime="{ item }">
+                {{ item.closingTime }}
+            </template>
+        </sw-entity-listing>
+    </template>
+</sw-page>

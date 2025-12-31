@@ -1,0 +1,25 @@
+{
+    "shopbite-holiday": {
+        "general": {
+            "mainMenuItemGeneral": "Holidays",
+            "descriptionText": "Manage holidays and vacations.",
+            "placeholderSearchBar": "Search holidays...",
+            "buttonCreate": "Add Holiday"
+        },
+        "list": {
+            "title": "Holidays",
+            "columnStart": "Start",
+            "columnEnd": "End",
+            "columnSalesChannel": "Sales Channel"
+        },
+        "detail": {
+            "title": "Holiday",
+            "titleSaveSuccess": "Holiday saved",
+            "messageSaveSuccess": "The holiday has been saved successfully.",
+            "cardGeneral": "General Information",
+            "labelStart": "Start Date & Time",
+            "labelEnd": "End Date & Time",
+            "labelSalesChannel": "Sales Channel"
+        }
+    }
+}

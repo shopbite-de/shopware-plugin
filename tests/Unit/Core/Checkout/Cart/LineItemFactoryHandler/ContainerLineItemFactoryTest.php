@@ -6,7 +6,7 @@ namespace ShopBite\Tests\Unit\Core\Checkout\Cart\LineItemFactoryHandler;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use ShopBite\Core\Checkout\Cart\LineItemFactoryHandler\ContainerLineItemFactory;
+use ShopBite\Checkout\Cart\LineItemFactoryHandler\ContainerLineItemFactory;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 

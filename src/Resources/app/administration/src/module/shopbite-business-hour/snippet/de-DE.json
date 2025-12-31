@@ -1,0 +1,33 @@
+{
+    "shopbite-business-hour": {
+        "general": {
+            "mainMenuItemGeneral": "Öffnungszeiten",
+            "descriptionText": "Verwalten Sie die Öffnungszeiten für Ihre Verkaufskanäle."
+        },
+        "list": {
+            "columnDayOfWeek": "Wochentag",
+            "columnOpeningTime": "Öffnungszeit",
+            "columnClosingTime": "Schließzeit",
+            "columnSalesChannel": "Verkaufskanal",
+            "buttonAdd": "Öffnungszeit hinzufügen"
+        },
+        "detail": {
+            "labelSalesChannel": "Verkaufskanal",
+            "labelDayOfWeek": "Wochentag",
+            "labelOpeningTime": "Öffnungszeit",
+            "labelClosingTime": "Schließzeit",
+            "buttonSave": "Speichern",
+            "buttonCancel": "Abbrechen",
+            "errorTitle": "Fehler"
+        },
+        "days": {
+            "monday": "Montag",
+            "tuesday": "Dienstag",
+            "wednesday": "Mittwoch",
+            "thursday": "Donnerstag",
+            "friday": "Freitag",
+            "saturday": "Samstag",
+            "sunday": "Sonntag"
+        }
+    }
+}

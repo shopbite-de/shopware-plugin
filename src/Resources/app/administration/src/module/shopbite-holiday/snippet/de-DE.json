@@ -1,0 +1,25 @@
+{
+    "shopbite-holiday": {
+        "general": {
+            "mainMenuItemGeneral": "Feiertage",
+            "descriptionText": "Feiertage und Urlaube verwalten.",
+            "placeholderSearchBar": "Feiertage suchen...",
+            "buttonCreate": "Feiertag hinzufügen"
+        },
+        "list": {
+            "title": "Feiertage",
+            "columnStart": "Start",
+            "columnEnd": "Ende",
+            "columnSalesChannel": "Verkaufskanal"
+        },
+        "detail": {
+            "title": "Feiertag",
+            "titleSaveSuccess": "Feiertag gespeichert",
+            "messageSaveSuccess": "Der Feiertag wurde erfolgreich gespeichert.",
+            "cardGeneral": "Allgemeine Informationen",
+            "labelStart": "Startdatum & Uhrzeit",
+            "labelEnd": "Enddatum & Uhrzeit",
+            "labelSalesChannel": "Verkaufskanal"
+        }
+    }
+}

@@ -1,0 +1,47 @@
+<sw-page class="shopbite-holiday-detail">
+    <template #smart-bar-actions>
+        <sw-button :routerLink="{ name: 'shopbite.holiday.list' }">
+            {{ $tc('global.default.cancel') }}
+        </sw-button>
+
+        <sw-button-process
+            variant="primary"
+            :isLoading="isLoading"
+            :processSuccess="processSuccess"
+            @process-finish="processSuccess = false"
+            @click="onSave"
+        >
+            {{ $tc('global.default.save') }}
+        </sw-button-process>
+    </template>
+
+    <template #content>
+        <sw-card-view>
+            <sw-card :title="$tc('shopbite-holiday.detail.cardGeneral')" :isLoading="isLoading" positionIdentifier="shopbite-holiday-detail-general">
+                <sw-datepicker
+                    v-if="holiday"
+                    v-model:value="holiday.start"
+                    dateType="datetime"
+                    :label="$tc('shopbite-holiday.detail.labelStart')"
+                    required
+                />
+
+                <sw-datepicker
+                    v-if="holiday"
+                    v-model:value="holiday.end"
+                    dateType="datetime"
+                    :label="$tc('shopbite-holiday.detail.labelEnd')"
+                    required
+                />
+
+                <sw-entity-single-select
+                    v-if="holiday"
+                    v-model:value="holiday.salesChannelId"
+                    entity="sales_channel"
+                    :label="$tc('shopbite-holiday.detail.labelSalesChannel')"
+                    required
+                />
+            </sw-card>
+        </sw-card-view>
+    </template>
+</sw-page>

@@ -6,18 +6,42 @@
 
     <services>
 
-        <service id="ShopBite\Core\Checkout\Cart\LineItemFactoryHandler\ContainerLineItemFactory">
+        <service id="ShopBite\Checkout\Cart\LineItemFactoryHandler\ContainerLineItemFactory">
             <tag name="shopware.cart.line_item.factory"/>
         </service>
 
-        <service id="ShopBite\Core\Content\ShopBiteConfig\SalesChannel\ShopBiteConfigRoute">
+        <service id="ShopBite\Config\SalesChannel\ShopBiteConfigRoute">
             <argument key="$systemConfigService" type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService" />
-            <tag>controller.service_arguments</tag>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <service id="ShopBite\BusinessHour\SalesChannel\BusinessHourRoute">
+            <argument type="service" id="shopbite_business_hour.repository"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
+        <service id="ShopBite\Holiday\SalesChannel\HolidayRoute">
+            <argument type="service" id="shopbite_holiday.repository"/>
+            <tag name="controller.service_arguments"/>
         </service>
 
         <service id="ShopBite\Service\CustomFieldsInstaller">
             <argument key="$customFieldSetRepository" type="service" id="custom_field_set.repository"/>
             <argument key="$customFieldSetRelationRepository" type="service" id="custom_field_set_relation.repository"/>
+        </service>
+
+        <!-- DAL entity definitions -->
+        <service id="ShopBite\Holiday\HolidayDefinition">
+            <tag name="shopware.entity.definition"/>
+        </service>
+
+        <service id="ShopBite\BusinessHour\BusinessHourDefinition">
+            <tag name="shopware.entity.definition"/>
+        </service>
+
+        <!-- Entity extension(s) -->
+        <service id="ShopBite\Extension\SalesChannel\SalesChannelExtension">
+            <tag name="shopware.entity.extension"/>
         </service>
 
     </services>

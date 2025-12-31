@@ -1,0 +1,26 @@
+<sw-page class="shopbite-holiday-list">
+    <template #smart-bar-actions>
+        <sw-button variant="primary" :routerLink="{ name: 'shopbite.holiday.create' }">
+            {{ $tc('shopbite-holiday.general.buttonCreate') }}
+        </sw-button>
+    </template>
+
+    <template #content>
+        <sw-entity-listing
+            v-if="holidays"
+            :items="holidays"
+            :repository="holidayRepository"
+            :showSelection="false"
+            :columns="columns"
+            :isLoading="isLoading"
+        >
+            <template #column-start="{ item }">
+                {{ formatDate(item.start) }}
+            </template>
+
+            <template #column-end="{ item }">
+                {{ formatDate(item.end) }}
+            </template>
+        </sw-entity-listing>
+    </template>
+</sw-page>
