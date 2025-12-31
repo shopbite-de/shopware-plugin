@@ -1,25 +1,77 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <files psalm-version="6.14.3@d0b040a91f280f071c1abcb1b77ce3822058725a">
-  <file src="src/Core/Checkout/Cart/LineItemFactoryHandler/ContainerLineItemFactory.php">
-    <UnusedClass>
-      <code><![CDATA[ContainerLineItemFactory]]></code>
-    </UnusedClass>
+  <file src="src/BusinessHour/BusinessHourEntity.php">
+    <PossiblyUnusedMethod>
+      <code><![CDATA[getClosingTime]]></code>
+      <code><![CDATA[getDayOfWeek]]></code>
+      <code><![CDATA[getOpeningTime]]></code>
+      <code><![CDATA[getSalesChannel]]></code>
+      <code><![CDATA[getSalesChannelId]]></code>
+      <code><![CDATA[setClosingTime]]></code>
+      <code><![CDATA[setDayOfWeek]]></code>
+      <code><![CDATA[setOpeningTime]]></code>
+      <code><![CDATA[setSalesChannel]]></code>
+      <code><![CDATA[setSalesChannelId]]></code>
+    </PossiblyUnusedMethod>
   </file>
-  <file src="src/Core/Content/ShopBiteConfig.php">
-    <PossiblyUnusedProperty>
-      <code><![CDATA[$deliveryTime]]></code>
-      <code><![CDATA[$isCheckoutEnabled]]></code>
-    </PossiblyUnusedProperty>
-  </file>
-  <file src="src/Core/Content/ShopBiteConfig/SalesChannel/AbstractShopBiteConfigRoute.php">
+  <file src="src/BusinessHour/SalesChannel/AbstractBusinessHourRoute.php">
     <PossiblyUnusedMethod>
       <code><![CDATA[getDecorated]]></code>
       <code><![CDATA[load]]></code>
     </PossiblyUnusedMethod>
   </file>
-  <file src="src/Core/Content/ShopBiteConfig/SalesChannel/ShopBiteConfigRoute.php">
+  <file src="src/BusinessHour/SalesChannel/BusinessHourRouteResponse.php">
+    <PossiblyUnusedMethod>
+      <code><![CDATA[getBusinessHours]]></code>
+    </PossiblyUnusedMethod>
+  </file>
+  <file src="src/Checkout/Cart/LineItemFactoryHandler/ContainerLineItemFactory.php">
     <UnusedClass>
-      <code><![CDATA[ShopBiteConfigRoute]]></code>
+      <code><![CDATA[ContainerLineItemFactory]]></code>
+    </UnusedClass>
+  </file>
+  <file src="src/Config/SalesChannel/AbstractShopBiteConfigRoute.php">
+    <PossiblyUnusedMethod>
+      <code><![CDATA[getDecorated]]></code>
+      <code><![CDATA[load]]></code>
+    </PossiblyUnusedMethod>
+  </file>
+  <file src="src/Extension/SalesChannel/SalesChannelExtension.php">
+    <UnusedClass>
+      <code><![CDATA[SalesChannelExtension]]></code>
+    </UnusedClass>
+  </file>
+  <file src="src/Holiday/HolidayEntity.php">
+    <PossiblyUnusedMethod>
+      <code><![CDATA[getEnd]]></code>
+      <code><![CDATA[getSalesChannel]]></code>
+      <code><![CDATA[getSalesChannelId]]></code>
+      <code><![CDATA[getStart]]></code>
+      <code><![CDATA[setEnd]]></code>
+      <code><![CDATA[setSalesChannel]]></code>
+      <code><![CDATA[setSalesChannelId]]></code>
+      <code><![CDATA[setStart]]></code>
+    </PossiblyUnusedMethod>
+  </file>
+  <file src="src/Holiday/SalesChannel/AbstractHolidayRoute.php">
+    <PossiblyUnusedMethod>
+      <code><![CDATA[getDecorated]]></code>
+      <code><![CDATA[load]]></code>
+    </PossiblyUnusedMethod>
+  </file>
+  <file src="src/Holiday/SalesChannel/HolidayRouteResponse.php">
+    <PossiblyUnusedMethod>
+      <code><![CDATA[getHolidays]]></code>
+    </PossiblyUnusedMethod>
+  </file>
+  <file src="src/Migration/Migration1704022000CreateBusinessHourTable.php">
+    <UnusedClass>
+      <code><![CDATA[Migration1704022000CreateBusinessHourTable]]></code>
+    </UnusedClass>
+  </file>
+  <file src="src/Migration/Migration1704022002CreateHolidayTable.php">
+    <UnusedClass>
+      <code><![CDATA[Migration1704022002CreateHolidayTable]]></code>
     </UnusedClass>
   </file>
   <file src="src/ShopBitePlugin.php">

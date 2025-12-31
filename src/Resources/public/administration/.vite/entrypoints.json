@@ -1,0 +1,23 @@
+{
+  "base": "/bundles/shopbiteplugin/administration/",
+  "entryPoints": {
+    "shop-bite-plugin": {
+      "css": [],
+      "dynamic": [],
+      "js": [
+        "/bundles/shopbiteplugin/administration/assets/shop-bite-plugin-TAhJVusx.js"
+      ],
+      "legacy": false,
+      "preload": []
+    }
+  },
+  "legacy": false,
+  "metadatas": {},
+  "version": [
+    "7.1.0",
+    7,
+    1,
+    0
+  ],
+  "viteServer": null
+}

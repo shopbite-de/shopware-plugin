@@ -5,6 +5,9 @@
         xsi:schemaLocation="http://symfony.com/schema/routing
         https://symfony.com/schema/routing/routing-1.0.xsd">
 
-    <import resource="../../Core/**/*Route.php" type="attribute" />
+    <import resource="../../Config/**/*Route.php" type="attribute" />
+    <import resource="../../Holiday/**/*Route.php" type="attribute" />
+    <import resource="../../BusinessHour/**/*Route.php" type="attribute" />
+
 
 </routes>

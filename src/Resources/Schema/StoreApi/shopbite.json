@@ -37,6 +37,58 @@
           }
         ]
       }
+    },
+    "/shopbite/business-hour": {
+      "get": {
+        "tags": ["ShopBite"],
+        "summary": "Get business hours",
+        "description": "Retrieves business hours for the current sales channel",
+        "operationId": "shopbite.business-hour.get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Returns business hours",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BusinessHourStruct"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "StoreApiKey": []
+          }
+        ]
+      }
+    },
+    "/shopbite/holiday": {
+      "get": {
+        "tags": ["ShopBite"],
+        "summary": "Get holidays",
+        "description": "Retrieves holidays for the current sales channel",
+        "operationId": "shopbite.holiday.get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Returns holidays",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HolidayStruct"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "StoreApiKey": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -56,6 +108,105 @@
           }
         },
         "required": ["isCheckoutEnabled", "deliveryTime"]
+      },
+      "BusinessHour": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dayOfWeek": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7
+          },
+          "openingTime": {
+            "type": "string"
+          },
+          "closingTime": {
+            "type": "string"
+          },
+          "salesChannelId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "translated": {
+            "type": "array",
+            "items": {}
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "apiAlias": {
+            "type": "string"
+          }
+        }
+      },
+      "BusinessHourStruct": {
+        "type": "object",
+        "properties": {
+          "businessHours": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BusinessHour"
+            }
+          }
+        }
+      },
+      "Holiday": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "salesChannelId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "translated": {
+            "type": "array",
+            "items": {}
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "apiAlias": {
+            "type": "string"
+          }
+        }
+      },
+      "HolidayStruct": {
+        "type": "object",
+        "properties": {
+          "holidays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Holiday"
+            }
+          }
+        }
       }
     },
     "securitySchemes": {

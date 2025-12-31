@@ -1,0 +1,49 @@
+<sw-page class="shopbite-business-hour-detail">
+    <template #smart-bar-actions>
+        <sw-button :routerLink="{ name: 'shopbite.business.hour.list' }">
+            {{ $tc('shopbite-business-hour.detail.buttonCancel') }}
+        </sw-button>
+
+        <sw-button-process
+            variant="primary"
+            :isLoading="isLoading"
+            :processSuccess="processSuccess"
+            @process-finish="processSuccess = false"
+            @click="onSave"
+        >
+            {{ $tc('shopbite-business-hour.detail.buttonSave') }}
+        </sw-button-process>
+    </template>
+
+    <template #content>
+        <sw-card v-if="businessHour" :isLoading="isLoading">
+            <sw-entity-single-select
+                v-model:value="businessHour.salesChannelId"
+                entity="sales_channel"
+                :label="$tc('shopbite-business-hour.detail.labelSalesChannel')"
+                required
+            />
+
+            <sw-single-select
+                v-model:value="businessHour.dayOfWeek"
+                :options="days"
+                :label="$tc('shopbite-business-hour.detail.labelDayOfWeek')"
+                required
+            />
+
+            <sw-datepicker
+                v-model:value="businessHour.openingTime"
+                dateType="time"
+                :label="$tc('shopbite-business-hour.detail.labelOpeningTime')"
+                required
+            />
+
+            <sw-datepicker
+                v-model:value="businessHour.closingTime"
+                dateType="time"
+                :label="$tc('shopbite-business-hour.detail.labelClosingTime')"
+                required
+            />
+        </sw-card>
+    </template>
+</sw-page>

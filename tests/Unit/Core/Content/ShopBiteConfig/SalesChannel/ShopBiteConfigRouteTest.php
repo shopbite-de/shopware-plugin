@@ -7,14 +7,14 @@ namespace ShopBite\Tests\Unit\Core\Content\ShopBiteConfig\SalesChannel;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
-use ShopBite\Core\Content\ShopBiteConfig;
-use ShopBite\Core\Content\ShopBiteConfig\SalesChannel\ShopBiteConfigRoute;
-use ShopBite\Core\Content\ShopBiteConfig\SalesChannel\ShopBiteConfigRouteResponse;
+use ShopBite\Config\SalesChannel\ShopBiteConfigRoute;
+use ShopBite\Config\SalesChannel\ShopBiteConfigRouteResponse;
+use ShopBite\Config\SalesChannel\ShopBiteConfigStruct;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 
 #[CoversClass(ShopBiteConfigRoute::class)]
-#[UsesClass(ShopBiteConfig::class)]
+#[UsesClass(ShopBiteConfigStruct::class)]
 #[UsesClass(ShopBiteConfigRouteResponse::class)]
 class ShopBiteConfigRouteTest extends TestCase
 {
