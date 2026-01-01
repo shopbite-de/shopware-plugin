@@ -16,6 +16,7 @@ Component.register('shopbite-holiday-detail', {
     data() {
         return {
             holiday: null,
+            salesChannels: null,
             isLoading: false,
             processSuccess: false
         };
@@ -24,6 +25,10 @@ Component.register('shopbite-holiday-detail', {
     computed: {
         holidayRepository() {
             return this.repositoryFactory.create('shopbite_holiday');
+        },
+
+        salesChannelRepository() {
+            return this.repositoryFactory.create('sales_channel');
         }
     },
 
@@ -38,6 +43,9 @@ Component.register('shopbite-holiday-detail', {
                 this.loadEntity();
             } else {
                 this.holiday = this.holidayRepository.create();
+                this.salesChannelRepository.search(new Shopware.Data.Criteria()).then((result) => {
+                    this.salesChannels = result;
+                });
             }
         },
 
@@ -45,6 +53,19 @@ Component.register('shopbite-holiday-detail', {
             this.isLoading = true;
             this.holidayRepository.get(this.holidayId).then((result) => {
                 this.holiday = result;
+                this.salesChannels = new Shopware.Data.EntityCollection(
+                    '/sales-channel',
+                    'sales_channel',
+                    Shopware.Context.api,
+                    new Shopware.Data.Criteria()
+                );
+
+                if (this.holiday.salesChannelId) {
+                    this.salesChannelRepository.get(this.holiday.salesChannelId).then((salesChannel) => {
+                        this.salesChannels.add(salesChannel);
+                    });
+                }
+
                 this.isLoading = false;
             });
         },
@@ -52,7 +73,29 @@ Component.register('shopbite-holiday-detail', {
         onSave() {
             this.isLoading = true;
 
-            this.holidayRepository.save(this.holiday).then(() => {
+            const promises = [];
+
+            this.salesChannels.forEach((salesChannel) => {
+                const holiday = this.holidayRepository.create();
+                Object.assign(holiday, this.holiday);
+
+                holiday.salesChannelId = salesChannel.id;
+
+                if (this.holidayId) {
+                    holiday.id = this.holidayId;
+                } else {
+                    delete holiday.id;
+                }
+
+                promises.push(this.holidayRepository.save(holiday));
+            });
+
+            if (promises.length === 0) {
+                this.isLoading = false;
+                return;
+            }
+
+            Promise.all(promises).then(() => {
                 this.isLoading = false;
                 this.processSuccess = true;
                 this.$router.push({ name: 'shopbite.holiday.list' });

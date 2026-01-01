@@ -34,9 +34,9 @@
                     required
                 />
 
-                <sw-entity-single-select
+                <sw-entity-multi-select
                     v-if="holiday"
-                    v-model:value="holiday.salesChannelId"
+                    v-model:entityCollection="salesChannels"
                     entity="sales_channel"
                     :label="$tc('shopbite-holiday.detail.labelSalesChannel')"
                     required

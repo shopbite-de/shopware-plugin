@@ -17,15 +17,15 @@
 
     <template #content>
         <sw-card v-if="businessHour" :isLoading="isLoading">
-            <sw-entity-single-select
-                v-model:value="businessHour.salesChannelId"
+            <sw-entity-multi-select
+                v-model:entityCollection="salesChannels"
                 entity="sales_channel"
                 :label="$tc('shopbite-business-hour.detail.labelSalesChannel')"
                 required
             />
 
-            <sw-single-select
-                v-model:value="businessHour.dayOfWeek"
+            <sw-multi-select
+                v-model:value="selectedDays"
                 :options="days"
                 :label="$tc('shopbite-business-hour.detail.labelDayOfWeek')"
                 required
