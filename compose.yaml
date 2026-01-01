@@ -2,7 +2,7 @@
 services:
   ###> shopware/core ###
   database:
-    image: mariadb:11.8
+    image: mariadb:12.1
     environment:
       MARIADB_DATABASE: shopware
       MARIADB_ROOT_PASSWORD: root
