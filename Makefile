@@ -31,7 +31,7 @@ static-analysis: cs-check psalm ## Run all static analysis tools
 check: static-analysis test ## Run all checks (cs-fix dry-run, psalm, tests)
 
 install-shopware:
-	$(CONTAINER) bin/console system:install -f --drop-database --create-database --skip-first-run-wizard --basic-setup
+	$(CONTAINER) bin/console system:install -f
 
 install-plugin:
 	$(CONTAINER) composer req shopbite-de/shopware-plugin:dev-main

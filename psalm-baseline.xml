@@ -30,6 +30,14 @@
       <code><![CDATA[ContainerLineItemFactory]]></code>
     </UnusedClass>
   </file>
+  <file src="src/Checkout/Cart/ReceiptPrintTypeProcessor.php">
+    <InvalidArgument>
+      <code><![CDATA[$criteria]]></code>
+    </InvalidArgument>
+    <UnusedClass>
+      <code><![CDATA[ReceiptPrintTypeProcessor]]></code>
+    </UnusedClass>
+  </file>
   <file src="src/Config/SalesChannel/AbstractShopBiteConfigRoute.php">
     <PossiblyUnusedMethod>
       <code><![CDATA[getDecorated]]></code>

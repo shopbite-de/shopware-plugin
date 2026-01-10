@@ -36,7 +36,21 @@ class CustomFieldsInstallerTest extends TestCase
         $this->customFieldSetRepository->expects($this->once())
             ->method('upsert')
             ->with($this->callback(function (array $data) {
-                return isset($data[0]['name']) && $data[0]['name'] === 'shopbite_product_set';
+                if (!isset($data[0]['name']) || $data[0]['name'] !== 'shopbite_product_set') {
+                    return false;
+                }
+
+                $customFields = $data[0]['customFields'];
+                $found = false;
+                foreach ($customFields as $field) {
+                    if ($field['name'] === 'shopbite_receipt_print_type') {
+                        $found = true;
+                        if ($field['config']['defaultValue'] !== 'label') {
+                            return false;
+                        }
+                    }
+                }
+                return $found;
             }), $context);
 
         $this->installer->install($context);
