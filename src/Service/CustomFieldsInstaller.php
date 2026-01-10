@@ -16,6 +16,7 @@ use Shopware\Core\System\CustomField\CustomFieldTypes;
 final readonly class CustomFieldsInstaller
 {
     private const string CUSTOM_FIELDSET_NAME = 'shopbite_product_set';
+    public const string SHOPBITE_RECEIPT_PRINT_TYPE = 'shopbite_receipt_print_type';
 
     private const array CUSTOM_FIELDSET = [
         'id' => '0198be8b24a0722cac46b07e3a80f49b',
@@ -39,6 +40,40 @@ final readonly class CustomFieldsInstaller
                         Defaults::LANGUAGE_SYSTEM => 'Delivery Time Factor',
                     ],
                     'customFieldPosition' => 1,
+                ],
+            ],
+            [
+                'id' => '01944f2b1875706596395b8d23966952',
+                'name' => self::SHOPBITE_RECEIPT_PRINT_TYPE,
+                'type' => CustomFieldTypes::SELECT,
+                'config' => [
+                    'label' => [
+                        'en-GB' => 'Receipt Print Type',
+                        'de-DE' => 'Quittungsdruck-Typ',
+                        Defaults::LANGUAGE_SYSTEM => 'Receipt Print Type',
+                    ],
+                    'componentName' => 'sw-single-select',
+                    'customFieldType' => 'select',
+                    'options' => [
+                        [
+                            'label' => [
+                                'en-GB' => 'Label',
+                                'de-DE' => 'Bezeichnung',
+                                Defaults::LANGUAGE_SYSTEM => 'Label',
+                            ],
+                            'value' => 'label',
+                        ],
+                        [
+                            'label' => [
+                                'en-GB' => 'Number',
+                                'de-DE' => 'Nummer',
+                                Defaults::LANGUAGE_SYSTEM => 'Number',
+                            ],
+                            'value' => 'number',
+                        ],
+                    ],
+                    'defaultValue' => 'label',
+                    'customFieldPosition' => 2,
                 ],
             ],
         ],

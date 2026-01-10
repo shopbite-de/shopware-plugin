@@ -30,6 +30,12 @@
             <argument key="$customFieldSetRelationRepository" type="service" id="custom_field_set_relation.repository"/>
         </service>
 
+        <service id="ShopBite\Checkout\Cart\ReceiptPrintTypeProcessor">
+            <argument type="service" id="product.repository"/>
+            <tag name="shopware.cart.processor" priority="4500"/>
+            <tag name="shopware.cart.collector" priority="4500"/>
+        </service>
+
         <!-- DAL entity definitions -->
         <service id="ShopBite\Holiday\HolidayDefinition">
             <tag name="shopware.entity.definition"/>
