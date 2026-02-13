@@ -34,7 +34,13 @@ class MultiChannelGroupRouteTest extends TestCase
         $context->method('getSalesChannel')->willReturn($salesChannel);
         $context->method('getContext')->willReturn(Context::createDefaultContext());
 
-        $multiChannelGroups = new MultiChannelGroupCollection();
+        $multiChannelGroup = new \ShopBite\MultiChannelGroup\MultiChannelGroupEntity();
+        $multiChannelGroup->setId('group-id');
+        $multiChannelGroup->setName('Group Name');
+        $salesChannels = new \Shopware\Core\System\SalesChannel\SalesChannelCollection([$salesChannel]);
+        $multiChannelGroup->setSalesChannels($salesChannels);
+
+        $multiChannelGroups = new MultiChannelGroupCollection([$multiChannelGroup]);
         $searchResult = $this->createMock(EntitySearchResult::class);
         $searchResult->method('getEntities')->willReturn($multiChannelGroups);
 
@@ -44,8 +50,6 @@ class MultiChannelGroupRouteTest extends TestCase
                 $filters = $criteria->getFilters();
                 $this->assertCount(1, $filters, 'Should have exactly one filter');
 
-                // We expect EqualsFilter, but the current code uses ContainsFilter.
-                // This test should fail if it doesn't find EqualsFilter.
                 $this->assertInstanceOf(EqualsFilter::class, $filters[0], 'Filter should be EqualsFilter');
                 $this->assertSame('salesChannels.id', $filters[0]->getField());
                 $this->assertSame('sales-channel-id', $filters[0]->getValue());
@@ -61,5 +65,9 @@ class MultiChannelGroupRouteTest extends TestCase
         $response = $route->load($context);
 
         $this->assertSame($multiChannelGroups, $response->getMultiChannelGroup());
+        $this->assertCount(1, $response->getMultiChannelGroup());
+        $firstGroup = $response->getMultiChannelGroup()->first();
+        $this->assertNotNull($firstGroup);
+        $this->assertSame($salesChannels, $firstGroup->getSalesChannels());
     }
 }

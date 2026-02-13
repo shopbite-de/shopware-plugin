@@ -42,7 +42,7 @@ final class MultiChannelGroupDefinition extends EntityDefinition
         return new FieldCollection([
             new IdField('id', 'id')->addFlags(new ApiAware(), new PrimaryKey(), new Required()),
             new StringField('name', 'name')->addFlags(new ApiAware(), new Required()),
-            new ManyToManyAssociationField('salesChannels', SalesChannelDefinition::class, 'shopbite_multi_channel_group_sales_channels', 'multi_channel_group_id', 'sales_channel_id'),
+            new ManyToManyAssociationField('salesChannels', SalesChannelDefinition::class, 'shopbite_multi_channel_group_sales_channels', 'multi_channel_group_id', 'sales_channel_id')->addFlags(new ApiAware()),
         ]);
     }
 }
