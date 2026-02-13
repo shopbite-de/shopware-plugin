@@ -89,6 +89,32 @@
           }
         ]
       }
+    },
+    "/shopbite/multi-channel-group": {
+      "get": {
+        "tags": ["ShopBite"],
+        "summary": "Get MultiChannelGroup",
+        "description": "Retrieves MultiChannelGroup information for the current sales channel",
+        "operationId": "shopbite.multi-channel-group.get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Returns MultiChannelGroup information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MultiChannelGroupStruct"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "StoreApiKey": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -204,6 +230,126 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Holiday"
+            }
+          }
+        }
+      },
+      "MultiChannelGroup": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "salesChannels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SalesChannel"
+            }
+          },
+          "translated": {
+            "type": "array",
+            "items": {}
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "apiAlias": {
+            "type": "string"
+          }
+        }
+      },
+      "SalesChannel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "domains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Domain"
+            }
+          },
+          "translated": {
+            "type": "array",
+            "items": {}
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "apiAlias": {
+            "type": "string"
+          }
+        }
+      },
+      "Domain": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "url": {
+            "type": "string"
+          },
+          "languageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "currencyId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "snippetSetId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "translated": {
+            "type": "array",
+            "items": {}
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "apiAlias": {
+            "type": "string"
+          }
+        }
+      },
+      "MultiChannelGroupStruct": {
+        "type": "object",
+        "properties": {
+          "multiChannelGroup": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MultiChannelGroup"
             }
           }
         }

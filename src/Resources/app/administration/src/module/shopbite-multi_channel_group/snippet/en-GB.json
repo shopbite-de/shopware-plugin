@@ -1,0 +1,42 @@
+{
+  "shopbite-multi_channel_group": {
+    "general": {
+      "mainMenuItemGeneral": "Multi-Channel Groups",
+      "descriptionText": "Manage multi-channel groups and their sales channel assignments",
+      "createButtonLabel": "Create Multi-Channel Group",
+      "saveButtonLabel": "Save",
+      "cancelButtonLabel": "Cancel",
+      "deleteButtonLabel": "Delete",
+      "editButtonLabel": "Edit"
+    },
+    "list": {
+      "title": "Multi-Channel Groups",
+      "columnName": "Name",
+      "columnSalesChannels": "Sales Channels",
+      "columnCreatedAt": "Created At",
+      "noResultsText": "No multi-channel groups found.",
+      "confirmDeleteMessage": "Are you sure you want to delete this multi-channel group?",
+      "confirmDeleteTitle": "Delete Multi-Channel Group",
+      "buttonAdd": "Add Multi-Channel Group"
+    },
+    "detail": {
+      "title": "Multi-Channel Group Details",
+      "titleCreate": "Create Multi-Channel Group",
+      "titleEdit": "Edit Multi-Channel Group",
+      "fieldName": "Name",
+      "fieldNamePlaceholder": "Enter group name",
+      "fieldSalesChannels": "Sales Channels",
+      "fieldSalesChannelsPlaceholder": "Select sales channels",
+      "successSave": "Multi-Channel Group saved successfully",
+      "errorSave": "Error saving Multi-Channel Group",
+      "errorLoad": "Error loading Multi-Channel Group",
+      "errorDelete": "Error deleting Multi-Channel Group"
+    },
+    "validation": {
+      "nameRequired": "Name is required",
+      "nameTooShort": "Name must be at least 3 characters",
+      "nameTooLong": "Name must be less than 255 characters",
+      "salesChannelsRequired": "At least one sales channel is required"
+    }
+  }
+}

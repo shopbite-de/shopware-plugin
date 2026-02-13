@@ -1,7 +1,7 @@
-<sw-page class="shopbite-business-hour-detail">
+<sw-page class="shopbite-business_hour-detail">
     <template #smart-bar-actions>
         <sw-button :routerLink="{ name: 'shopbite.business.hour.list' }">
-            {{ $tc('shopbite-business-hour.detail.buttonCancel') }}
+            {{ $tc('shopbite-business_hour.detail.buttonCancel') }}
         </sw-button>
 
         <sw-button-process
@@ -11,7 +11,7 @@
             @process-finish="processSuccess = false"
             @click="onSave"
         >
-            {{ $tc('shopbite-business-hour.detail.buttonSave') }}
+            {{ $tc('shopbite-business_hour.detail.buttonSave') }}
         </sw-button-process>
     </template>
 
@@ -20,28 +20,28 @@
             <sw-entity-multi-select
                 v-model:entityCollection="salesChannels"
                 entity="sales_channel"
-                :label="$tc('shopbite-business-hour.detail.labelSalesChannel')"
+                :label="$tc('shopbite-business_hour.detail.labelSalesChannel')"
                 required
             />
 
             <sw-multi-select
                 v-model:value="selectedDays"
                 :options="days"
-                :label="$tc('shopbite-business-hour.detail.labelDayOfWeek')"
+                :label="$tc('shopbite-business_hour.detail.labelDayOfWeek')"
                 required
             />
 
             <sw-datepicker
                 v-model:value="businessHour.openingTime"
                 dateType="time"
-                :label="$tc('shopbite-business-hour.detail.labelOpeningTime')"
+                :label="$tc('shopbite-business_hour.detail.labelOpeningTime')"
                 required
             />
 
             <sw-datepicker
                 v-model:value="businessHour.closingTime"
                 dateType="time"
-                :label="$tc('shopbite-business-hour.detail.labelClosingTime')"
+                :label="$tc('shopbite-business_hour.detail.labelClosingTime')"
                 required
             />
         </sw-card>

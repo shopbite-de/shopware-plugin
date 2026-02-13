@@ -1,0 +1,30 @@
+{#
+/**
+ * @var Shopware.Core.Framework.Data.Entity[] multiChannelGroups
+ */
+#}
+
+{% block shopbite_multi_channel_group_list %}
+    <sw-page class="shopbite-multi_channel_group-list">
+        <template #smart-bar-actions>
+            <sw-button variant="primary" :routerLink="{ name: 'shopbite.multi_channel_group.create' }">
+                {{ $tc('shopbite-multi_channel_group.list.buttonAdd') }}
+            </sw-button>
+        </template>
+
+        <template #content>
+            <sw-entity-listing
+                v-if="multiChannelGroups"
+                :items="multiChannelGroups"
+                :repository="multiChannelGroupRepository"
+                :showSelection="false"
+                :columns="columns"
+                :isLoading="isLoading"
+            >
+                <template #column-salesChannels="{ item }">
+                    {{ getSalesChannelNames(item.salesChannels) }}
+                </template>
+            </sw-entity-listing>
+        </template>
+    </sw-page>
+{% endblock %}

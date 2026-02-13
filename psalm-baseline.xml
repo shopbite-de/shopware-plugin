@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<files psalm-version="6.14.3@d0b040a91f280f071c1abcb1b77ce3822058725a">
+<files psalm-version="6.15.1@28dc127af1b5aecd52314f6f645bafc10d0e11f9">
   <file src="src/BusinessHour/BusinessHourEntity.php">
     <PossiblyUnusedMethod>
       <code><![CDATA[getClosingTime]]></code>
@@ -81,6 +81,47 @@
     <UnusedClass>
       <code><![CDATA[Migration1704022002CreateHolidayTable]]></code>
     </UnusedClass>
+  </file>
+  <file src="src/Migration/Migration1770980542CreateMultiChannelGroupTable.php">
+    <UnusedClass>
+      <code><![CDATA[Migration1770980542CreateMultiChannelGroupTable]]></code>
+    </UnusedClass>
+  </file>
+  <file src="src/MultiChannelGroup/MultiChannelGroupEntity.php">
+    <PossiblyUnusedMethod>
+      <code><![CDATA[getName]]></code>
+      <code><![CDATA[getSalesChannels]]></code>
+      <code><![CDATA[setName]]></code>
+      <code><![CDATA[setSalesChannels]]></code>
+    </PossiblyUnusedMethod>
+  </file>
+  <file src="src/MultiChannelGroup/SalesChannel/AbstractMultiChannelGroupRoute.php">
+    <PossiblyUnusedMethod>
+      <code><![CDATA[getDecorated]]></code>
+      <code><![CDATA[load]]></code>
+    </PossiblyUnusedMethod>
+  </file>
+  <file src="src/MultiChannelGroup/SalesChannel/MultiChannelGroupRouteResponse.php">
+    <PossiblyUnusedMethod>
+      <code><![CDATA[getMultiChannelGroup]]></code>
+    </PossiblyUnusedMethod>
+  </file>
+  <file src="src/MultiChannelGroup/SalesChannel/MultiChannelGroupSalesChannelDefinition.php">
+    <UnusedClass>
+      <code><![CDATA[MultiChannelGroupSalesChannelDefinition]]></code>
+    </UnusedClass>
+  </file>
+  <file src="src/MultiChannelGroup/SalesChannel/MultiChannelGroupSalesChannelEntity.php">
+    <PossiblyUnusedMethod>
+      <code><![CDATA[getMultiChannelGroup]]></code>
+      <code><![CDATA[getMultiChannelGroupId]]></code>
+      <code><![CDATA[getSalesChannel]]></code>
+      <code><![CDATA[getSalesChannelId]]></code>
+      <code><![CDATA[setMultiChannelGroup]]></code>
+      <code><![CDATA[setMultiChannelGroupId]]></code>
+      <code><![CDATA[setSalesChannel]]></code>
+      <code><![CDATA[setSalesChannelId]]></code>
+    </PossiblyUnusedMethod>
   </file>
   <file src="src/ShopBitePlugin.php">
     <ArgumentTypeCoercion>

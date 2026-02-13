@@ -1,0 +1,62 @@
+{#
+/**
+ * @var Shopware.Core.Framework.Data.Entity item
+ * @var Shopware.Core.Framework.Data.Entity[] salesChannels
+ * @var Shopware.Core.Framework.Data.Entity[] selectedSalesChannels
+ */
+#}
+
+{% block shopbite_multi_channel_group_detail %}
+    <sw-page class="shopbite-multi_channel_group-detail">
+    <template #smart-bar-header>
+        <h2 v-if="item">
+            {{ getTitle() }}
+        </h2>
+        <h2 v-else>
+            {{ $tc('shopbite-multi_channel_group.detail.titleCreate') }}
+        </h2>
+    </template>
+
+    <template #smart-bar-actions>
+        <sw-button
+            variant="primary"
+            @click="onSave"
+            :disabled="isLoading || !acl.can('shopbite_multi_channel_group.editor')"
+        >
+            {{ $tc('shopbite-multi_channel_group.general.saveButtonLabel') }}
+        </sw-button>
+    </template>
+
+    <template #content>
+        <sw-card-view>
+            <sw-card v-if="item" position-identifier="shopbite-multi_channel_group-detail-main" :isLoading="isLoading">
+                <sw-text-field
+                    v-model="item.name"
+                    :label="$tc('shopbite-multi_channel_group.detail.fieldName')"
+                    :placeholder="$tc('shopbite-multi_channel_group.detail.fieldNamePlaceholder')"
+                    :disabled="isLoading"
+                    required
+                />
+
+                <sw-entity-multi-select
+                    v-model:entityCollection="item.salesChannels"
+                    entity="sales_channel"
+                    :label="$tc('shopbite-multi_channel_group.detail.fieldSalesChannels')"
+                    :disabled="isLoading"
+                    required
+                />
+
+                <div class="shopbite-multi_channel_group-detail__actions">
+                    <sw-button
+                        variant="secondary"
+                        @click="onCancel"
+                        :disabled="isLoading"
+                    >
+                        {{ $tc('shopbite-multi_channel_group.general.cancelButtonLabel') }}
+                    </sw-button>
+                </div>
+            </sw-card>
+        </sw-card-view>
+    </template>
+</sw-page>
+{% endblock %}

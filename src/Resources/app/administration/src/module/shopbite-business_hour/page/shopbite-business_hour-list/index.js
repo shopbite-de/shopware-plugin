@@ -1,9 +1,9 @@
-import template from './shopbite-business-hour-list.html.twig';
+import template from './shopbite-business_hour-list.html.twig';
 
 const { Component, Mixin } = Shopware;
 const { Criteria } = Shopware.Data;
 
-Component.register('shopbite-business-hour-list', {
+Component.register('shopbite-business_hour-list', {
     template,
 
     inject: [
@@ -37,22 +37,22 @@ Component.register('shopbite-business-hour-list', {
         columns() {
             return [{
                 property: 'dayOfWeek',
-                label: 'shopbite-business-hour.list.columnDayOfWeek',
+                label: 'shopbite-business_hour.list.columnDayOfWeek',
                 routerLink: 'shopbite.business.hour.detail',
                 inlineEdit: 'number',
                 allowResize: true,
                 primary: true
             }, {
                 property: 'openingTime',
-                label: 'shopbite-business-hour.list.columnOpeningTime',
+                label: 'shopbite-business_hour.list.columnOpeningTime',
                 allowResize: true
             }, {
                 property: 'closingTime',
-                label: 'shopbite-business-hour.list.columnClosingTime',
+                label: 'shopbite-business_hour.list.columnClosingTime',
                 allowResize: true
             }, {
                 property: 'salesChannel.name',
-                label: 'shopbite-business-hour.list.columnSalesChannel',
+                label: 'shopbite-business_hour.list.columnSalesChannel',
                 allowResize: true
             }];
         },
@@ -81,13 +81,13 @@ Component.register('shopbite-business-hour-list', {
 
         getDayName(dayOfWeek) {
             const days = [
-                'shopbite-business-hour.days.monday',
-                'shopbite-business-hour.days.tuesday',
-                'shopbite-business-hour.days.wednesday',
-                'shopbite-business-hour.days.thursday',
-                'shopbite-business-hour.days.friday',
-                'shopbite-business-hour.days.saturday',
-                'shopbite-business-hour.days.sunday'
+                'shopbite-business_hour.days.monday',
+                'shopbite-business_hour.days.tuesday',
+                'shopbite-business_hour.days.wednesday',
+                'shopbite-business_hour.days.thursday',
+                'shopbite-business_hour.days.friday',
+                'shopbite-business_hour.days.saturday',
+                'shopbite-business_hour.days.sunday'
             ];
 
             return this.$tc(days[dayOfWeek - 1]);

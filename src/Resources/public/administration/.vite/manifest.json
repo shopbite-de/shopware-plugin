@@ -1,8 +1,11 @@
 {
   "main.js": {
-    "file": "assets/shop-bite-plugin-DcVLzFl4.js",
+    "file": "assets/shop-bite-plugin-Dks3vVsr.js",
     "name": "shop-bite-plugin",
     "src": "main.js",
-    "isEntry": true
+    "isEntry": true,
+    "css": [
+      "assets/shop-bite-plugin-29LTO60f.css"
+    ]
   }
 }

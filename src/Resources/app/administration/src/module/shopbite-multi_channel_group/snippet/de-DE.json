@@ -1,0 +1,42 @@
+{
+  "shopbite-multi_channel_group": {
+    "general": {
+      "mainMenuItemGeneral": "Multi-Channel-Gruppen",
+      "descriptionText": "Verwalten Sie Multi-Channel-Gruppen und deren Verkaufskanal-Zuweisungen",
+      "createButtonLabel": "Multi-Channel-Gruppe erstellen",
+      "saveButtonLabel": "Speichern",
+      "cancelButtonLabel": "Abbrechen",
+      "deleteButtonLabel": "Löschen",
+      "editButtonLabel": "Bearbeiten"
+    },
+    "list": {
+      "title": "Multi-Channel-Gruppen",
+      "columnName": "Name",
+      "columnSalesChannels": "Verkaufskanäle",
+      "columnCreatedAt": "Erstellt am",
+      "noResultsText": "Keine Multi-Channel-Gruppen gefunden.",
+      "confirmDeleteMessage": "Möchten Sie diese Multi-Channel-Gruppe wirklich löschen?",
+      "confirmDeleteTitle": "Multi-Channel-Gruppe löschen",
+      "buttonAdd": "Multi-Channel-Gruppe hinzufügen"
+    },
+    "detail": {
+      "title": "Multi-Channel-Gruppe Details",
+      "titleCreate": "Multi-Channel-Gruppe erstellen",
+      "titleEdit": "Multi-Channel-Gruppe bearbeiten",
+      "fieldName": "Name",
+      "fieldNamePlaceholder": "Gruppenname eingeben",
+      "fieldSalesChannels": "Verkaufskanäle",
+      "fieldSalesChannelsPlaceholder": "Verkaufskanäle auswählen",
+      "successSave": "Multi-Channel-Gruppe erfolgreich gespeichert",
+      "errorSave": "Fehler beim Speichern der Multi-Channel-Gruppe",
+      "errorLoad": "Fehler beim Laden der Multi-Channel-Gruppe",
+      "errorDelete": "Fehler beim Löschen der Multi-Channel-Gruppe"
+    },
+    "validation": {
+      "nameRequired": "Name ist erforderlich",
+      "nameTooShort": "Name muss mindestens 3 Zeichen lang sein",
+      "nameTooLong": "Name darf maximal 255 Zeichen lang sein",
+      "salesChannelsRequired": "Mindestens ein Verkaufskanal ist erforderlich"
+    }
+  }
+}

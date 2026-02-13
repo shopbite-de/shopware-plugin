@@ -2,10 +2,12 @@
   "base": "/bundles/shopbiteplugin/administration/",
   "entryPoints": {
     "shop-bite-plugin": {
-      "css": [],
+      "css": [
+        "/bundles/shopbiteplugin/administration/assets/shop-bite-plugin-29LTO60f.css"
+      ],
       "dynamic": [],
       "js": [
-        "/bundles/shopbiteplugin/administration/assets/shop-bite-plugin-DcVLzFl4.js"
+        "/bundles/shopbiteplugin/administration/assets/shop-bite-plugin-Dks3vVsr.js"
       ],
       "legacy": false,
       "preload": []

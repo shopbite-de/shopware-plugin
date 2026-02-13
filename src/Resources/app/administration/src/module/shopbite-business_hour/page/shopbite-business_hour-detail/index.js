@@ -1,8 +1,8 @@
-import template from './shopbite-business-hour-detail.html.twig';
+import template from './shopbite-business_hour-detail.html.twig';
 
 const { Component, Mixin } = Shopware;
 
-Component.register('shopbite-business-hour-detail', {
+Component.register('shopbite-business_hour-detail', {
     template,
 
     inject: [
@@ -34,13 +34,13 @@ Component.register('shopbite-business-hour-detail', {
 
         days() {
             return [
-                { value: 1, label: this.$tc('shopbite-business-hour.days.monday') },
-                { value: 2, label: this.$tc('shopbite-business-hour.days.tuesday') },
-                { value: 3, label: this.$tc('shopbite-business-hour.days.wednesday') },
-                { value: 4, label: this.$tc('shopbite-business-hour.days.thursday') },
-                { value: 5, label: this.$tc('shopbite-business-hour.days.friday') },
-                { value: 6, label: this.$tc('shopbite-business-hour.days.saturday') },
-                { value: 7, label: this.$tc('shopbite-business-hour.days.sunday') }
+                { value: 1, label: this.$tc('shopbite-business_hour.days.monday') },
+                { value: 2, label: this.$tc('shopbite-business_hour.days.tuesday') },
+                { value: 3, label: this.$tc('shopbite-business_hour.days.wednesday') },
+                { value: 4, label: this.$tc('shopbite-business_hour.days.thursday') },
+                { value: 5, label: this.$tc('shopbite-business_hour.days.friday') },
+                { value: 6, label: this.$tc('shopbite-business_hour.days.saturday') },
+                { value: 7, label: this.$tc('shopbite-business_hour.days.sunday') }
             ];
         }
     },
@@ -116,11 +116,11 @@ Component.register('shopbite-business-hour-detail', {
             Promise.all(promises).then(() => {
                 this.isLoading = false;
                 this.processSuccess = true;
-                this.$router.push({ name: 'shopbite.business.hour.list' });
+                this.$router.push({ name: 'shopbite.business_hour.list' });
             }).catch((exception) => {
                 this.isLoading = false;
                 this.createNotificationError({
-                    title: this.$tc('shopbite-business-hour.detail.errorTitle'),
+                    title: this.$tc('shopbite-business_hour.detail.errorTitle'),
                     message: exception.message
                 });
             });

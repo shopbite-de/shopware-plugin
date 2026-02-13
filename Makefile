@@ -24,6 +24,10 @@ cs-check: ## Run php-cs-fixer in dry-run mode
 psalm: ## Run psalm static analysis
 	$(PHP_BIN) $(PSALM)
 
+.PHONY: psalm-baseline
+psalm-baseline: ## Run psalm static analysis
+	$(PHP_BIN) $(PSALM) --set-baseline=psalm-baseline.xml
+
 .PHONY: static-analysis
 static-analysis: cs-check psalm ## Run all static analysis tools
 
