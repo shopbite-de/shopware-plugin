@@ -17,12 +17,6 @@
   <file src="src/BusinessHour/SalesChannel/AbstractBusinessHourRoute.php">
     <PossiblyUnusedMethod>
       <code><![CDATA[getDecorated]]></code>
-      <code><![CDATA[load]]></code>
-    </PossiblyUnusedMethod>
-  </file>
-  <file src="src/BusinessHour/SalesChannel/BusinessHourRouteResponse.php">
-    <PossiblyUnusedMethod>
-      <code><![CDATA[getBusinessHours]]></code>
     </PossiblyUnusedMethod>
   </file>
   <file src="src/Checkout/Cart/LineItemFactoryHandler/ContainerLineItemFactory.php">

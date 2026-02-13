@@ -7,7 +7,7 @@ namespace ShopBite\MultiChannelGroup\SalesChannel;
 use ShopBite\MultiChannelGroup\MultiChannelGroupCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\ContainsFilter;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\Routing\Attribute\Route;
@@ -50,7 +50,7 @@ final readonly class MultiChannelGroupRoute extends AbstractMultiChannelGroupRou
         $salesChannelId = $context->getSalesChannel()->getId();
 
         $criteria = new Criteria();
-        $criteria->addFilter(new ContainsFilter('salesChannels.id', $salesChannelId));
+        $criteria->addFilter(new EqualsFilter('salesChannels.id', $salesChannelId));
         $criteria->addAssociation('salesChannels');
 
         $multiChannelGroups = $this->multiChannelGroupRepository->search($criteria, $context->getContext())->getEntities();
