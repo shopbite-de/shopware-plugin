@@ -8,6 +8,7 @@
     <import resource="../../Config/**/*Route.php" type="attribute" />
     <import resource="../../Holiday/**/*Route.php" type="attribute" />
     <import resource="../../BusinessHour/**/*Route.php" type="attribute" />
+    <import resource="../../MultiChannelGroup/**/*Route.php" type="attribute" />
 
 
 </routes>
