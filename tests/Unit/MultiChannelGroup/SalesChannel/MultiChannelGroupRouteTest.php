@@ -57,6 +57,10 @@ class MultiChannelGroupRouteTest extends TestCase
                 $associations = $criteria->getAssociations();
                 $this->assertArrayHasKey('salesChannels', $associations, 'Should have salesChannels association');
 
+                $salesChannelCriteria = $associations['salesChannels'];
+                $this->assertContains('name', $salesChannelCriteria->getFields(), 'Should only request name for sales channels');
+                $this->assertArrayHasKey('domains', $salesChannelCriteria->getAssociations(), 'Should have domains association for sales channels');
+
                 return true;
             }), $this->isInstanceOf(Context::class))
             ->willReturn($searchResult);
