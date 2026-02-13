@@ -6,15 +6,17 @@ namespace ShopBite\Tests\Unit\MultiChannelGroup\SalesChannel;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
-use ShopBite\MultiChannelGroup\MultiChannelGroupCollection;
+use ShopBite\MultiChannelGroup\MultiChannelGroupEntity;
 use ShopBite\MultiChannelGroup\SalesChannel\MultiChannelGroupRoute;
 use ShopBite\MultiChannelGroup\SalesChannel\MultiChannelGroupRouteResponse;
 use ShopBite\MultiChannelGroup\SalesChannel\MultiChannelGroupStruct;
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
+use Shopware\Core\System\SalesChannel\SalesChannelCollection;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Core\System\SalesChannel\SalesChannelEntity;
 
@@ -34,15 +36,14 @@ class MultiChannelGroupRouteTest extends TestCase
         $context->method('getSalesChannel')->willReturn($salesChannel);
         $context->method('getContext')->willReturn(Context::createDefaultContext());
 
-        $multiChannelGroup = new \ShopBite\MultiChannelGroup\MultiChannelGroupEntity();
+        $multiChannelGroup = new MultiChannelGroupEntity();
         $multiChannelGroup->setId('group-id');
         $multiChannelGroup->setName('Group Name');
-        $salesChannels = new \Shopware\Core\System\SalesChannel\SalesChannelCollection([$salesChannel]);
+        $salesChannels = new SalesChannelCollection([$salesChannel]);
         $multiChannelGroup->setSalesChannels($salesChannels);
 
-        $multiChannelGroups = new MultiChannelGroupCollection([$multiChannelGroup]);
         $searchResult = $this->createMock(EntitySearchResult::class);
-        $searchResult->method('getEntities')->willReturn($multiChannelGroups);
+        $searchResult->method('getEntities')->willReturn(new EntityCollection([$multiChannelGroup]));
 
         $multiChannelGroupRepository->expects($this->once())
             ->method('search')
@@ -56,18 +57,8 @@ class MultiChannelGroupRouteTest extends TestCase
 
                 $associations = $criteria->getAssociations();
                 $this->assertArrayHasKey('salesChannels', $associations, 'Should have salesChannels association');
-
-                $salesChannelCriteria = $associations['salesChannels'];
-                $includes = $salesChannelCriteria->getIncludes();
-                $this->assertIsArray($includes);
-                $this->assertArrayHasKey('sales_channel', $includes);
-                $this->assertContains('name', $includes['sales_channel']);
-                $this->assertContains('domains', $includes['sales_channel']);
-                $this->assertContains('translated', $includes['sales_channel']);
-                $this->assertArrayHasKey('sales_channel_domain', $includes);
-                $this->assertContains('url', $includes['sales_channel_domain']);
-
-                $this->assertArrayHasKey('domains', $salesChannelCriteria->getAssociations(), 'Should have domains association for sales channels');
+                $salesChannelsCriteria = $associations['salesChannels'];
+                $this->assertTrue($salesChannelsCriteria->hasAssociation('domains'), 'salesChannels should have domains association');
 
                 return true;
             }), $this->isInstanceOf(Context::class))
@@ -76,10 +67,10 @@ class MultiChannelGroupRouteTest extends TestCase
         $route = new MultiChannelGroupRoute($multiChannelGroupRepository);
         $response = $route->load($context);
 
-        $this->assertSame($multiChannelGroups, $response->getMultiChannelGroup());
         $this->assertCount(1, $response->getMultiChannelGroup());
         $firstGroup = $response->getMultiChannelGroup()->first();
         $this->assertNotNull($firstGroup);
+        $this->assertSame('group-id', $firstGroup->getId());
         $this->assertSame($salesChannels, $firstGroup->getSalesChannels());
     }
 }

@@ -1,7 +1,7 @@
 PHP_BIN=php
 PHPUNIT=vendor/bin/phpunit
 PHPCSFIXER=vendor/bin/php-cs-fixer
-PSALM=vendor/bin/psalm
+PSALM=vendor/bin/psalm --no-cache
 CONTAINER=docker compose exec web
 
 .PHONY: help

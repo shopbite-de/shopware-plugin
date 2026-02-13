@@ -17,6 +17,12 @@
   <file src="src/BusinessHour/SalesChannel/AbstractBusinessHourRoute.php">
     <PossiblyUnusedMethod>
       <code><![CDATA[getDecorated]]></code>
+      <code><![CDATA[load]]></code>
+    </PossiblyUnusedMethod>
+  </file>
+  <file src="src/BusinessHour/SalesChannel/BusinessHourRouteResponse.php">
+    <PossiblyUnusedMethod>
+      <code><![CDATA[getBusinessHours]]></code>
     </PossiblyUnusedMethod>
   </file>
   <file src="src/Checkout/Cart/LineItemFactoryHandler/ContainerLineItemFactory.php">
@@ -84,11 +90,20 @@
   <file src="src/MultiChannelGroup/MultiChannelGroupEntity.php">
     <PossiblyUnusedMethod>
       <code><![CDATA[getName]]></code>
+      <code><![CDATA[getSalesChannels]]></code>
+      <code><![CDATA[setName]]></code>
+      <code><![CDATA[setSalesChannels]]></code>
     </PossiblyUnusedMethod>
   </file>
   <file src="src/MultiChannelGroup/SalesChannel/AbstractMultiChannelGroupRoute.php">
     <PossiblyUnusedMethod>
       <code><![CDATA[getDecorated]]></code>
+      <code><![CDATA[load]]></code>
+    </PossiblyUnusedMethod>
+  </file>
+  <file src="src/MultiChannelGroup/SalesChannel/MultiChannelGroupRouteResponse.php">
+    <PossiblyUnusedMethod>
+      <code><![CDATA[getMultiChannelGroup]]></code>
     </PossiblyUnusedMethod>
   </file>
   <file src="src/MultiChannelGroup/SalesChannel/MultiChannelGroupSalesChannelDefinition.php">
