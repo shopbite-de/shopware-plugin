@@ -53,7 +53,10 @@ final readonly class MultiChannelGroupRoute extends AbstractMultiChannelGroupRou
         $criteria->addFilter(new EqualsFilter('salesChannels.id', $salesChannelId));
 
         $salesChannelsCriteria = $criteria->getAssociation('salesChannels');
-        $salesChannelsCriteria->addFields(['name', 'domains']);
+        $salesChannelsCriteria->setIncludes([
+            'sales_channel' => ['name', 'domains', 'translated'],
+            'sales_channel_domain' => ['url']
+        ]);
         $salesChannelsCriteria->addAssociation('domains');
 
         $multiChannelGroups = $this->multiChannelGroupRepository->search($criteria, $context->getContext())->getEntities();
