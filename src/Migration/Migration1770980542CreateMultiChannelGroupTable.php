@@ -32,7 +32,6 @@ final class Migration1770980542CreateMultiChannelGroupTable extends MigrationSte
             CREATE TABLE IF NOT EXISTS `shopbite_multi_channel_group_sales_channels` (
                 `multi_channel_group_id` BINARY(16) NOT NULL,
                 `sales_channel_id` BINARY(16) NOT NULL,
-                `created_at` DATETIME(3) NOT NULL,
                 PRIMARY KEY (`multi_channel_group_id`, `sales_channel_id`),
                 CONSTRAINT `fk.mc_group_sc.multi_channel_group_id` 
                     FOREIGN KEY (`multi_channel_group_id`) 
