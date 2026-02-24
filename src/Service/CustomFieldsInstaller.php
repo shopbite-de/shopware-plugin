@@ -9,6 +9,7 @@ use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\MultiFilter;
 use Shopware\Core\System\CustomField\Aggregate\CustomFieldSet\CustomFieldSetCollection;
 use Shopware\Core\System\CustomField\Aggregate\CustomFieldSetRelation\CustomFieldSetRelationCollection;
 use Shopware\Core\System\CustomField\CustomFieldTypes;
@@ -16,7 +17,9 @@ use Shopware\Core\System\CustomField\CustomFieldTypes;
 final readonly class CustomFieldsInstaller
 {
     private const string CUSTOM_FIELDSET_NAME = 'shopbite_product_set';
+    private const string CATEGORY_CUSTOM_FIELDSET_NAME = 'shopbite_category_set';
     public const string SHOPBITE_RECEIPT_PRINT_TYPE = 'shopbite_receipt_print_type';
+    public const string SHOPBITE_CATEGORY_ICON = 'shopbite_category_icon';
 
     private const array CUSTOM_FIELDSET = [
         'id' => '0198be8b24a0722cac46b07e3a80f49b',
@@ -79,6 +82,34 @@ final readonly class CustomFieldsInstaller
         ],
     ];
 
+    private const array CATEGORY_CUSTOM_FIELDSET = [
+        'id' => '0195191263d9703ca6385732168d80f8',
+        'name' => self::CATEGORY_CUSTOM_FIELDSET_NAME,
+        'config' => [
+            'label' => [
+                'en-GB' => 'ShopBite Category',
+                'de-DE' => 'ShopBite Kategorie',
+                Defaults::LANGUAGE_SYSTEM => 'ShopBite Category',
+            ],
+        ],
+        'customFields' => [
+            [
+                'id' => '0195191263d9703ca638573216c5932a',
+                'name' => self::SHOPBITE_CATEGORY_ICON,
+                'type' => CustomFieldTypes::TEXT,
+                'config' => [
+                    'label' => [
+                        'en-GB' => 'Icon',
+                        'de-DE' => 'Icon',
+                        Defaults::LANGUAGE_SYSTEM => 'Icon',
+                    ],
+                    'helpText' => 'Icon name from https://icones.js.org. Example i-lucide-heart',
+                    'customFieldPosition' => 1,
+                ],
+            ],
+        ],
+    ];
+
     /**
      * @param EntityRepository<CustomFieldSetCollection>         $customFieldSetRepository
      * @param EntityRepository<CustomFieldSetRelationCollection> $customFieldSetRelationRepository
@@ -93,6 +124,7 @@ final readonly class CustomFieldsInstaller
     {
         $this->customFieldSetRepository->upsert([
             self::CUSTOM_FIELDSET,
+            self::CATEGORY_CUSTOM_FIELDSET,
         ], $context);
     }
 
@@ -103,33 +135,61 @@ final readonly class CustomFieldsInstaller
 
     public function uninstall(Context $context): void
     {
-        $this->customFieldSetRepository->delete(self::CUSTOM_FIELDSET['customFields'], $context);
-        $this->customFieldSetRelationRepository->delete([self::CUSTOM_FIELDSET], $context);
+        $this->customFieldSetRepository->delete(array_merge(
+            self::CUSTOM_FIELDSET['customFields'],
+            self::CATEGORY_CUSTOM_FIELDSET['customFields']
+        ), $context);
+        $this->customFieldSetRelationRepository->delete([
+            self::CUSTOM_FIELDSET,
+            self::CATEGORY_CUSTOM_FIELDSET,
+        ], $context);
     }
 
     public function addRelations(Context $context): void
     {
-        $this->customFieldSetRelationRepository->upsert(array_map(function (string $customFieldSetId) {
-            return [
+        $upserts = [];
+        $ids = $this->getCustomFieldSetIds($context);
+
+        if (isset($ids[self::CUSTOM_FIELDSET_NAME])) {
+            $upserts[] = [
                 'id' => '0198be99dd757130a9a99df0f878bf05',
-                'customFieldSetId' => $customFieldSetId,
+                'customFieldSetId' => $ids[self::CUSTOM_FIELDSET_NAME],
                 'entityName' => 'product',
             ];
-        }, $this->getCustomFieldSetIds($context)), $context);
+        }
+
+        if (isset($ids[self::CATEGORY_CUSTOM_FIELDSET_NAME])) {
+            $upserts[] = [
+                'id' => '0195191263d9703ca63857321a007137',
+                'customFieldSetId' => $ids[self::CATEGORY_CUSTOM_FIELDSET_NAME],
+                'entityName' => 'category',
+            ];
+        }
+
+        if ($upserts !== []) {
+            $this->customFieldSetRelationRepository->upsert($upserts, $context);
+        }
     }
 
     /**
-     * @return string[]
+     * @return array<string, string>
      */
     private function getCustomFieldSetIds(Context $context): array
     {
         $criteria = new Criteria();
 
-        $criteria->addFilter(new EqualsFilter('name', self::CUSTOM_FIELDSET_NAME));
+        $criteria->addFilter(new MultiFilter(MultiFilter::CONNECTION_OR, [
+            new EqualsFilter('name', self::CUSTOM_FIELDSET_NAME),
+            new EqualsFilter('name', self::CATEGORY_CUSTOM_FIELDSET_NAME),
+        ]));
 
-        /** @var string[] $ids */
-        $ids = $this->customFieldSetRepository->searchIds($criteria, $context)->getIds();
+        $entities = $this->customFieldSetRepository->search($criteria, $context)->getEntities();
 
-        return $ids;
+        $result = [];
+        foreach ($entities->getElements() as $fieldset) {
+            $result[$fieldset->getName()] = $fieldset->getId();
+        }
+
+        return $result;
     }
 }
