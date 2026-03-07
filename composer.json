@@ -29,7 +29,7 @@
     "require": {
         "php": "^8.4",
         "shopware/core": "~6.7.0",
-        "azjezz/psl": "^4.2"
+        "azjezz/psl": "^5.0"
     },
 
     "config": {
