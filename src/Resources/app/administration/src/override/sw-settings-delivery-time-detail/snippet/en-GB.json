@@ -1,0 +1,10 @@
+{
+  "sw-settings-delivery-time": {
+    "detail": {
+      "selectionUnitMinute": "Minute"
+    },
+    "list": {
+      "columnUnit_minute": "Minute"
+    }
+  }
+}

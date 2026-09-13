@@ -41,6 +41,11 @@
             <tag name="shopware.cart.collector" priority="4500"/>
         </service>
 
+        <service id="ShopBite\Checkout\Cart\Delivery\MinuteAwareDeliveryBuilder"
+                 decorates="Shopware\Core\Checkout\Cart\Delivery\DeliveryBuilder">
+            <argument type="service" id=".inner"/>
+        </service>
+
         <!-- DAL entity definitions -->
         <service id="ShopBite\Holiday\HolidayDefinition">
             <tag name="shopware.entity.definition"/>
