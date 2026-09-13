@@ -181,9 +181,9 @@ class MinuteAwareDeliveryBuilderTest extends TestCase
     {
         $shippingMethod = $this->createShippingMethod(null);
 
-        $context = $this->createMock(SalesChannelContext::class);
+        $context = $this->createStub(SalesChannelContext::class);
         $context->method('getShippingMethod')->willReturn($shippingMethod);
-        $context->method('getShippingLocation')->willReturn($this->createMock(ShippingLocation::class));
+        $context->method('getShippingLocation')->willReturn($this->createStub(ShippingLocation::class));
 
         return $context;
     }
