@@ -8,10 +8,8 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use ShopBite\Service\CustomFieldsInstaller;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\IdSearchResult;
 
 #[CoversClass(CustomFieldsInstaller::class)]
 class CustomFieldsInstallerTest extends TestCase
@@ -40,10 +38,10 @@ class CustomFieldsInstallerTest extends TestCase
                 if (count($data) !== 2) {
                     return false;
                 }
-                
+
                 $productSet = null;
                 $categorySet = null;
-                
+
                 foreach ($data as $set) {
                     if ($set['name'] === 'shopbite_product_set') {
                         $productSet = $set;
@@ -51,7 +49,7 @@ class CustomFieldsInstallerTest extends TestCase
                         $categorySet = $set;
                     }
                 }
-                
+
                 if (!$productSet || !$categorySet) {
                     return false;
                 }
@@ -65,14 +63,14 @@ class CustomFieldsInstallerTest extends TestCase
                         }
                     }
                 }
-                
+
                 $foundIcon = false;
                 foreach ($categorySet['customFields'] as $field) {
                     if ($field['name'] === 'shopbite_category_icon') {
                         $foundIcon = true;
                     }
                 }
-                
+
                 return $foundReceipt && $foundIcon;
             }), $context);
 
@@ -130,10 +128,10 @@ class CustomFieldsInstallerTest extends TestCase
                 if (count($data) !== 2) {
                     return false;
                 }
-                
+
                 $productRelation = null;
                 $categoryRelation = null;
-                
+
                 foreach ($data as $relation) {
                     if ($relation['entityName'] === 'product') {
                         $productRelation = $relation;
@@ -141,9 +139,9 @@ class CustomFieldsInstallerTest extends TestCase
                         $categoryRelation = $relation;
                     }
                 }
-                
-                return $productRelation !== null 
-                    && $productRelation['customFieldSetId'] === 'fieldset-product-id' 
+
+                return $productRelation !== null
+                    && $productRelation['customFieldSetId'] === 'fieldset-product-id'
                     && $categoryRelation !== null
                     && $categoryRelation['customFieldSetId'] === 'fieldset-category-id';
             }), $context);
