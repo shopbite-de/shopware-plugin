@@ -25,7 +25,13 @@ vendor/bin/phpunit tests/Unit/Core/Content/Holiday/SalesChannel/HolidayRouteTest
 vendor/bin/phpunit --filter testLoad
 ```
 
-CI (`.github/workflows/ci.yml`) runs `make cs-check`, `make psalm`, `make test` against Shopware 6.7.5.1 and 6.7.7.1. Keep code compatible with both.
+CI (`.github/workflows/ci.yml`) runs `make cs-check`, `make psalm`, `make test` against Shopware 6.7.5.1 and 6.7.14.0 on PHP 8.4. Keep code compatible with both.
+
+**Psalm needs PHP 8.4.** On a PHP 8.5 host it reports a bogus `InvalidAttribute` for every `#[\Override]`. Run it inside the dev container instead:
+
+```bash
+docker compose exec -w /var/www/html/custom/static-plugins/ShopBitePlugin web php vendor/bin/psalm --no-cache
+```
 
 ### Local Shopware for manual testing
 

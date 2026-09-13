@@ -52,7 +52,7 @@ services:
       dockerfile: Dockerfile
       args:
         PHP_VERSION: 8.4
-        SHOPWARE_VERSION: 6.7.5.1
+        SHOPWARE_VERSION: 6.7.14.0
     ports:
       - 8000:8000
       - 8080:8080
