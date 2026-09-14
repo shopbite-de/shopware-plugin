@@ -55,10 +55,17 @@ class CustomFieldsInstallerTest extends TestCase
                 }
 
                 $foundReceipt = false;
+                $foundCartUpsell = false;
                 foreach ($productSet['customFields'] as $field) {
                     if ($field['name'] === 'shopbite_receipt_print_type') {
                         $foundReceipt = true;
                         if ($field['config']['defaultValue'] !== 'label') {
+                            return false;
+                        }
+                    }
+                    if ($field['name'] === 'shopbite_cart_upsell') {
+                        $foundCartUpsell = true;
+                        if ($field['type'] !== 'bool' || $field['config']['customFieldPosition'] !== 3) {
                             return false;
                         }
                     }
@@ -71,7 +78,7 @@ class CustomFieldsInstallerTest extends TestCase
                     }
                 }
 
-                return $foundReceipt && $foundIcon;
+                return $foundReceipt && $foundCartUpsell && $foundIcon;
             }), $context);
 
         $this->installer->install($context);

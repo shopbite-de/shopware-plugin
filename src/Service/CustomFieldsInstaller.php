@@ -19,6 +19,7 @@ final readonly class CustomFieldsInstaller
     private const string CUSTOM_FIELDSET_NAME = 'shopbite_product_set';
     private const string CATEGORY_CUSTOM_FIELDSET_NAME = 'shopbite_category_set';
     public const string SHOPBITE_RECEIPT_PRINT_TYPE = 'shopbite_receipt_print_type';
+    public const string SHOPBITE_CART_UPSELL = 'shopbite_cart_upsell';
     public const string SHOPBITE_CATEGORY_ICON = 'shopbite_category_icon';
 
     private const array CUSTOM_FIELDSET = [
@@ -77,6 +78,27 @@ final readonly class CustomFieldsInstaller
                     ],
                     'defaultValue' => 'label',
                     'customFieldPosition' => 2,
+                ],
+            ],
+            [
+                'id' => '01a0a0388d5f7300984a4380d0bf449d',
+                'name' => self::SHOPBITE_CART_UPSELL,
+                'type' => CustomFieldTypes::BOOL,
+                'config' => [
+                    'label' => [
+                        'en-GB' => 'Cart suggestion (up-selling)',
+                        'de-DE' => 'Warenkorb-Empfehlung (Up-Selling)',
+                        Defaults::LANGUAGE_SYSTEM => 'Cart suggestion (up-selling)',
+                    ],
+                    'helpText' => [
+                        'en-GB' => 'Suggested in the cart as a one-click add-on. For variants, set it on the single variant.',
+                        'de-DE' => 'Wird im Warenkorb als Empfehlung zum Hinzufügen mit einem Klick angezeigt. Bei Varianten an der einzelnen Variante setzen.',
+                        Defaults::LANGUAGE_SYSTEM => 'Suggested in the cart as a one-click add-on. For variants, set it on the single variant.',
+                    ],
+                    'componentName' => 'sw-field',
+                    'type' => 'checkbox',
+                    'customFieldType' => 'checkbox',
+                    'customFieldPosition' => 3,
                 ],
             ],
         ],
