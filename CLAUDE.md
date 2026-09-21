@@ -89,6 +89,10 @@ Nothing is autowired. Adding an entity or route touches all of these:
 
 Custom field sets are defined as constant arrays with **hard-coded UUIDs** and upserted on install/update; relations to `product`/`category` are added on activate. New custom fields must get a fixed UUID (so reinstalls are idempotent) and a public constant if PHP code reads them. Plugin config (`Resources/config/config.xml`) is read via `SystemConfigService` with keys `ShopBitePlugin.config.<name>` and exposed through `ShopBiteConfigRoute`.
 
+### Order printer ACL role (`src/Service/OrderPrinterRoleInstaller.php`)
+
+Creates/updates the `acl_role` `order-printer` (looked up by name) on install and update, and deletes it on uninstall without `keepUserData()`. `PRIVILEGES` must stay sorted and match exactly what `../order-printer/src/Infra/Shopware/Api/` requests: every association or filter path in a search needs `<entity>:read` (`AclCriteriaValidator`). If you change it, update the tables in the README, `../order-printer/docs/dokploy-deployment.md` and the homepage docs.
+
 ### Administration (`src/Resources/app/administration/`)
 
 Plain Shopware admin modules (`Shopware.Module.register`, list + detail pages, de-DE/en-GB snippets), all nested under the `shopbite.main.index` navigation parent. The compiled bundle in `src/Resources/public/administration/` **is committed**; after changing admin JS, rebuild it with Shopware's admin build (`make build-administration` / `make watch-admin` in `../shopware/`, or `bin/build-administration.sh` inside this repo's `web` container) and commit the output.

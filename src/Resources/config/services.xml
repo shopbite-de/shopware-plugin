@@ -35,6 +35,10 @@
             <argument key="$customFieldSetRelationRepository" type="service" id="custom_field_set_relation.repository"/>
         </service>
 
+        <service id="ShopBite\Service\OrderPrinterRoleInstaller">
+            <argument key="$aclRoleRepository" type="service" id="acl_role.repository"/>
+        </service>
+
         <service id="ShopBite\Checkout\Cart\ReceiptPrintTypeProcessor">
             <argument type="service" id="product.repository"/>
             <tag name="shopware.cart.processor" priority="4500"/>

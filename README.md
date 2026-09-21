@@ -35,6 +35,20 @@ For the best experience, it is recommended to use this plugin in combination wit
    ```
 3. Refresh the administration to see the ShopBite modules.
 
+## Order Printer role
+
+Install and update create the ACL role `order-printer` for the [ShopBite Order Printer](https://github.com/shopbite-de/order-printer), with only the privileges its Admin API calls need:
+
+| Privilege | Used for |
+| --- | --- |
+| `order:read`, `state_machine_state:read` | `POST /api/search/order` (open orders) |
+| `order_delivery:read`, `order_line_item:read`, `order_address:read`, `shipping_method:read` | `POST /api/search/order-delivery` (receipt contents) |
+| `order:update` | `POST /api/_action/order/{id}/state/process` (mark *in progress*) |
+
+To connect a printer: *Settings › System › Integrations › Add integration*, select the role `order-printer`, and copy the access key ID and secret access key into the printer's `SHOPWARE_CLIENT_ID` / `SHOPWARE_CLIENT_SECRET`. The secret is only shown once.
+
+Re-running install or update leaves an up-to-date role untouched and resets changed privileges, so don't edit the role by hand. Uninstalling with *keep user data* keeps the role, because integrations reference it.
+
 ## Requirements
 
 - Shopware 6.7.0 or higher

@@ -9,6 +9,7 @@ use Override;
 use function Psl\Type\instance_of;
 
 use ShopBite\Service\CustomFieldsInstaller;
+use ShopBite\Service\OrderPrinterRoleInstaller;
 use Shopware\Core\Framework\Plugin;
 use Shopware\Core\Framework\Plugin\Context\ActivateContext;
 use Shopware\Core\Framework\Plugin\Context\InstallContext;
@@ -21,6 +22,7 @@ final class ShopBitePlugin extends Plugin
     public function install(InstallContext $installContext): void
     {
         $this->getCustomFieldsInstaller()->install($installContext->getContext());
+        $this->getOrderPrinterRoleInstaller()->install($installContext->getContext());
     }
 
     #[Override]
@@ -33,6 +35,7 @@ final class ShopBitePlugin extends Plugin
         }
 
         $this->getCustomFieldsInstaller()->uninstall($uninstallContext->getContext());
+        $this->getOrderPrinterRoleInstaller()->uninstall($uninstallContext->getContext());
     }
 
     #[Override]
@@ -45,6 +48,7 @@ final class ShopBitePlugin extends Plugin
     public function update(UpdateContext $updateContext): void
     {
         $this->getCustomFieldsInstaller()->update($updateContext->getContext());
+        $this->getOrderPrinterRoleInstaller()->update($updateContext->getContext());
     }
 
     private function getCustomFieldsInstaller(): CustomFieldsInstaller
@@ -57,5 +61,18 @@ final class ShopBitePlugin extends Plugin
             $this->container->get('custom_field_set.repository'),
             $this->container->get('custom_field_set_relation.repository')
         );
+    }
+
+    /**
+     * @psalm-suppress PossiblyNullReference The container is set before any lifecycle method runs
+     * @psalm-suppress ArgumentTypeCoercion acl_role.repository is an EntityRepository<AclRoleCollection>
+     */
+    private function getOrderPrinterRoleInstaller(): OrderPrinterRoleInstaller
+    {
+        if ($this->container->has(OrderPrinterRoleInstaller::class)) {
+            return instance_of(OrderPrinterRoleInstaller::class)->coerce($this->container->get(OrderPrinterRoleInstaller::class));
+        }
+
+        return new OrderPrinterRoleInstaller($this->container->get('acl_role.repository'));
     }
 }
