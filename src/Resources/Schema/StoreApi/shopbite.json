@@ -131,6 +131,32 @@
             "type": "integer",
             "minimum": 1,
             "description": "Default delivery time in minutes"
+          },
+          "addressStreet": {
+            "type": "string",
+            "nullable": true,
+            "description": "Street and number of the shop, null if not configured"
+          },
+          "addressPostalCode": {
+            "type": "string",
+            "nullable": true,
+            "description": "Postal code of the shop, null if not configured"
+          },
+          "addressCity": {
+            "type": "string",
+            "nullable": true,
+            "description": "City of the shop, null if not configured"
+          },
+          "telephone": {
+            "type": "string",
+            "nullable": true,
+            "description": "Telephone number in display format (e.g. +49 6104 71427), null if not configured"
+          },
+          "googleBusinessProfileUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "description": "Link to the shop's Google Business Profile, null if not configured"
           }
         },
         "required": ["isCheckoutEnabled", "deliveryTime"]
