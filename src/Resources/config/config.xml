@@ -29,4 +29,46 @@
         </input-field>
     </card>
 
+    <card>
+        <title>Contact &amp; location</title>
+        <title lang="de-DE">Kontakt &amp; Standort</title>
+
+        <input-field type="text">
+            <name>addressStreet</name>
+            <label>Street and number</label>
+            <label lang="de-DE">Straße und Hausnummer</label>
+            <helpText>Shown in the storefront footer and used for local search results.</helpText>
+            <helpText lang="de-DE">Wird im Footer der Storefront angezeigt und für die lokale Suche genutzt.</helpText>
+        </input-field>
+
+        <input-field type="text">
+            <name>addressPostalCode</name>
+            <label>Postal code</label>
+            <label lang="de-DE">Postleitzahl</label>
+        </input-field>
+
+        <input-field type="text">
+            <name>addressCity</name>
+            <label>City</label>
+            <label lang="de-DE">Ort</label>
+        </input-field>
+
+        <input-field type="text">
+            <name>telephone</name>
+            <label>Telephone</label>
+            <label lang="de-DE">Telefon</label>
+            <placeholder>+49 6104 71427</placeholder>
+            <helpText>Shown as entered. Customers can call it directly from the storefront.</helpText>
+            <helpText lang="de-DE">Wird so angezeigt, wie eingegeben. Kunden können direkt aus der Storefront anrufen.</helpText>
+        </input-field>
+
+        <input-field type="url">
+            <name>googleBusinessProfileUrl</name>
+            <label>Google Business Profile URL</label>
+            <label lang="de-DE">Google-Unternehmensprofil (URL)</label>
+            <helpText>Optional. Link to your profile on Google Maps, e.g. https://maps.app.goo.gl/…</helpText>
+            <helpText lang="de-DE">Optional. Link zu Ihrem Profil auf Google Maps, z. B. https://maps.app.goo.gl/…</helpText>
+        </input-field>
+    </card>
+
 </config>

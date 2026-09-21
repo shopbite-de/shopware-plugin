@@ -6,6 +6,7 @@ namespace ShopBite\Config\SalesChannel;
 
 use function Psl\Type\bool;
 use function Psl\Type\positive_int;
+use function Psl\Type\string;
 
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
@@ -39,12 +40,35 @@ final readonly class ShopBiteConfigRoute
     )]
     public function load(SalesChannelContext $context): ShopBiteConfigRouteResponse
     {
-        $isCheckoutEnabled = $this->systemConfigService->get('ShopBitePlugin.config.isCheckoutEnabled', $context->getSalesChannelId());
-        $defaultDeliveryTime = $this->systemConfigService->get('ShopBitePlugin.config.defaultDeliveryTime', $context->getSalesChannelId());
+        $salesChannelId = $context->getSalesChannelId();
 
-        $isCheckoutEnabled = bool()->coerce($isCheckoutEnabled);
-        $defaultDeliveryTime = positive_int()->coerce($defaultDeliveryTime);
+        $isCheckoutEnabled = $this->systemConfigService->get('ShopBitePlugin.config.isCheckoutEnabled', $salesChannelId);
+        $defaultDeliveryTime = $this->systemConfigService->get('ShopBitePlugin.config.defaultDeliveryTime', $salesChannelId);
 
-        return new ShopBiteConfigRouteResponse(new ShopBiteConfigStruct($isCheckoutEnabled, $defaultDeliveryTime));
+        return new ShopBiteConfigRouteResponse(new ShopBiteConfigStruct(
+            bool()->coerce($isCheckoutEnabled),
+            positive_int()->coerce($defaultDeliveryTime),
+            $this->getOptionalString('addressStreet', $salesChannelId),
+            $this->getOptionalString('addressPostalCode', $salesChannelId),
+            $this->getOptionalString('addressCity', $salesChannelId),
+            $this->getOptionalString('telephone', $salesChannelId),
+            $this->getOptionalString('googleBusinessProfileUrl', $salesChannelId),
+        ));
+    }
+
+    /**
+     * Unset, non-string and blank values are returned as null.
+     */
+    private function getOptionalString(string $name, string $salesChannelId): ?string
+    {
+        $value = $this->systemConfigService->get('ShopBitePlugin.config.' . $name, $salesChannelId);
+
+        if (!string()->matches($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
     }
 }
