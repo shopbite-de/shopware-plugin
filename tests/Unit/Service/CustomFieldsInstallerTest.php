@@ -90,6 +90,13 @@ class CustomFieldsInstallerTest extends TestCase
 
         $this->customFieldSetRepository->expects($this->once())
             ->method('upsert');
+        $this->customFieldSetRepository->method('search')->willReturn($this->createSearchResult([
+            $this->createFieldSetMock('fieldset-product-id', 'shopbite_product_set'),
+            $this->createFieldSetMock('fieldset-category-id', 'shopbite_category_set'),
+        ]));
+        $this->customFieldSetRelationRepository->expects($this->once())
+            ->method('upsert')
+            ->with($this->callback(fn (array $data) => array_column($data, 'entityName') === ['product', 'category']), $context);
 
         $this->installer->update($context);
     }
@@ -99,8 +106,12 @@ class CustomFieldsInstallerTest extends TestCase
         $context = Context::createDefaultContext();
 
         $this->customFieldSetRepository->expects($this->once())
-            ->method('delete');
-        $this->customFieldSetRelationRepository->expects($this->once())
+            ->method('delete')
+            ->with([
+                ['id' => '0198be8b24a0722cac46b07e3a80f49b'],
+                ['id' => '0195191263d9703ca6385732168d80f8'],
+            ], $context);
+        $this->customFieldSetRelationRepository->expects($this->never())
             ->method('delete');
 
         $this->installer->uninstall($context);
@@ -154,6 +165,20 @@ class CustomFieldsInstallerTest extends TestCase
             }), $context);
 
         $this->installer->addRelations($context);
+    }
+
+    /**
+     * @param list<MockObject> $fieldSets
+     */
+    private function createSearchResult(array $fieldSets): MockObject
+    {
+        $entities = $this->createMock(\Shopware\Core\Framework\DataAbstractionLayer\EntityCollection::class);
+        $entities->method('getElements')->willReturn($fieldSets);
+
+        $searchResult = $this->createMock(\Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult::class);
+        $searchResult->method('getEntities')->willReturn($entities);
+
+        return $searchResult;
     }
 
     private function createFieldSetMock(string $id, string $name): MockObject

@@ -153,17 +153,17 @@ final readonly class CustomFieldsInstaller
     public function update(Context $context): void
     {
         $this->install($context);
+        // Sets added in a later plugin version would otherwise never get their relation,
+        // because activate() does not run again for an already active plugin.
+        $this->addRelations($context);
     }
 
     public function uninstall(Context $context): void
     {
-        $this->customFieldSetRepository->delete(array_merge(
-            self::CUSTOM_FIELDSET['customFields'],
-            self::CATEGORY_CUSTOM_FIELDSET['customFields']
-        ), $context);
-        $this->customFieldSetRelationRepository->delete([
-            self::CUSTOM_FIELDSET,
-            self::CATEGORY_CUSTOM_FIELDSET,
+        // Custom fields and relations are removed via CascadeDelete.
+        $this->customFieldSetRepository->delete([
+            ['id' => self::CUSTOM_FIELDSET['id']],
+            ['id' => self::CATEGORY_CUSTOM_FIELDSET['id']],
         ], $context);
     }
 
