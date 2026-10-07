@@ -169,28 +169,41 @@ final readonly class CustomFieldsInstaller
 
     public function addRelations(Context $context): void
     {
-        $upserts = [];
         $ids = $this->getCustomFieldSetIds($context);
+        $wanted = [
+            self::CUSTOM_FIELDSET_NAME => ['id' => '0198be99dd757130a9a99df0f878bf05', 'entityName' => 'product'],
+            self::CATEGORY_CUSTOM_FIELDSET_NAME => ['id' => '0195191263d9703ca63857321a007137', 'entityName' => 'category'],
+        ];
 
-        if (isset($ids[self::CUSTOM_FIELDSET_NAME])) {
+        $upserts = [];
+        foreach ($wanted as $setName => $relation) {
+            if (!isset($ids[$setName])) {
+                continue;
+            }
+            // A relation can already exist under another id (created in the Admin or by an older
+            // plugin version); inserting ours would violate the unique key on set + entity.
+            if ($this->hasRelation($ids[$setName], $relation['entityName'], $context)) {
+                continue;
+            }
             $upserts[] = [
-                'id' => '0198be99dd757130a9a99df0f878bf05',
-                'customFieldSetId' => $ids[self::CUSTOM_FIELDSET_NAME],
-                'entityName' => 'product',
-            ];
-        }
-
-        if (isset($ids[self::CATEGORY_CUSTOM_FIELDSET_NAME])) {
-            $upserts[] = [
-                'id' => '0195191263d9703ca63857321a007137',
-                'customFieldSetId' => $ids[self::CATEGORY_CUSTOM_FIELDSET_NAME],
-                'entityName' => 'category',
+                'id' => $relation['id'],
+                'customFieldSetId' => $ids[$setName],
+                'entityName' => $relation['entityName'],
             ];
         }
 
         if ($upserts !== []) {
             $this->customFieldSetRelationRepository->upsert($upserts, $context);
         }
+    }
+
+    private function hasRelation(string $customFieldSetId, string $entityName, Context $context): bool
+    {
+        $criteria = new Criteria();
+        $criteria->addFilter(new EqualsFilter('customFieldSetId', $customFieldSetId));
+        $criteria->addFilter(new EqualsFilter('entityName', $entityName));
+
+        return $this->customFieldSetRelationRepository->searchIds($criteria, $context)->getTotal() > 0;
     }
 
     /**
