@@ -10,6 +10,8 @@ use PHPUnit\Framework\TestCase;
 use ShopBite\Service\CustomFieldsInstaller;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\IdSearchResult;
 
 #[CoversClass(CustomFieldsInstaller::class)]
 class CustomFieldsInstallerTest extends TestCase
@@ -94,6 +96,7 @@ class CustomFieldsInstallerTest extends TestCase
             $this->createFieldSetMock('fieldset-product-id', 'shopbite_product_set'),
             $this->createFieldSetMock('fieldset-category-id', 'shopbite_category_set'),
         ]));
+        $this->stubExistingRelations([]);
         $this->customFieldSetRelationRepository->expects($this->once())
             ->method('upsert')
             ->with($this->callback(fn (array $data) => array_column($data, 'entityName') === ['product', 'category']), $context);
@@ -139,6 +142,7 @@ class CustomFieldsInstallerTest extends TestCase
         $searchResult->method('getEntities')->willReturn($entities);
 
         $this->customFieldSetRepository->method('search')->willReturn($searchResult);
+        $this->stubExistingRelations([]);
 
         $this->customFieldSetRelationRepository->expects($this->once())
             ->method('upsert')
@@ -165,6 +169,61 @@ class CustomFieldsInstallerTest extends TestCase
             }), $context);
 
         $this->installer->addRelations($context);
+    }
+
+    public function testAddRelationsSkipsRelationThatAlreadyExistsUnderAnotherId(): void
+    {
+        $context = Context::createDefaultContext();
+
+        $this->customFieldSetRepository->method('search')->willReturn($this->createSearchResult([
+            $this->createFieldSetMock('fieldset-product-id', 'shopbite_product_set'),
+            $this->createFieldSetMock('fieldset-category-id', 'shopbite_category_set'),
+        ]));
+        $this->stubExistingRelations(['category']);
+
+        $this->customFieldSetRelationRepository->expects($this->once())
+            ->method('upsert')
+            ->with([[
+                'id' => '0198be99dd757130a9a99df0f878bf05',
+                'customFieldSetId' => 'fieldset-product-id',
+                'entityName' => 'product',
+            ]], $context);
+
+        $this->installer->addRelations($context);
+    }
+
+    public function testAddRelationsDoesNothingWhenAllRelationsExist(): void
+    {
+        $context = Context::createDefaultContext();
+
+        $this->customFieldSetRepository->method('search')->willReturn($this->createSearchResult([
+            $this->createFieldSetMock('fieldset-product-id', 'shopbite_product_set'),
+            $this->createFieldSetMock('fieldset-category-id', 'shopbite_category_set'),
+        ]));
+        $this->stubExistingRelations(['product', 'category']);
+
+        $this->customFieldSetRelationRepository->expects($this->never())->method('upsert');
+
+        $this->installer->addRelations($context);
+    }
+
+    /**
+     * @param list<string> $existingEntityNames
+     */
+    private function stubExistingRelations(array $existingEntityNames): void
+    {
+        $this->customFieldSetRelationRepository->method('searchIds')
+            ->willReturnCallback(function (Criteria $criteria, Context $context) use ($existingEntityNames): IdSearchResult {
+                $entityName = null;
+                foreach ($criteria->getFilters() as $filter) {
+                    if ($filter->getField() === 'entityName') {
+                        $entityName = $filter->getValue();
+                    }
+                }
+                $ids = \in_array($entityName, $existingEntityNames, true) ? ['existing-id' => ['primaryKey' => 'existing-id', 'data' => []]] : [];
+
+                return new IdSearchResult(\count($ids), $ids, $criteria, $context);
+            });
     }
 
     /**
