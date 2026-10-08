@@ -130,7 +130,7 @@ class WishlistRouteTest extends TestCase
         self::assertSame(['Zwiebeln'], $json['without']);
         self::assertSame(['X-1'], $json['extras']);
         self::assertSame('2026-10-01T10:00:00+00:00', $json['createdAt']);
-        self::assertSame('shopbite_wishlist_item', $item->getApiAlias());
+        self::assertSame('shopbite_wishlist_entry', $item->getApiAlias());
     }
 
     public function testAddCreatesNormalisedEntry(): void
