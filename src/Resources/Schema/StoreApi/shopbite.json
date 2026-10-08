@@ -115,6 +115,206 @@
           }
         ]
       }
+    },
+    "/shopbite/wishlist": {
+      "post": {
+        "tags": ["ShopBite"],
+        "summary": "List wishlist items",
+        "description": "Returns the configured dishes on the wishlist of the logged-in customer in the current sales channel, newest first. Requires a logged-in customer (sw-context-token header of a customer session); guests get 403 CHECKOUT__CUSTOMER_NOT_LOGGED_IN.",
+        "operationId": "shopbite.wishlist.list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Wishlist items, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopBiteWishlist"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Customer is not logged in (CHECKOUT__CUSTOMER_NOT_LOGGED_IN)"
+          }
+        },
+        "security": [
+          {
+            "StoreApiKey": []
+          }
+        ]
+      }
+    },
+    "/shopbite/wishlist/add": {
+      "post": {
+        "tags": ["ShopBite"],
+        "summary": "Add a configured dish to the wishlist",
+        "description": "Adds a product (variant) with its configuration. without and extras are trimmed, deduplicated and sorted. If the same product with the same configuration is already on the wishlist, the existing entry is returned. Requires a logged-in customer (sw-context-token header of a customer session); guests get 403 CHECKOUT__CUSTOMER_NOT_LOGGED_IN.",
+        "operationId": "shopbite.wishlist.add",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["productId"],
+                "properties": {
+                  "productId": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{32}$"
+                  },
+                  "without": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Names of deselected main ingredients"
+                  },
+                  "extras": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Product numbers of selected extras"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The created or already existing wishlist item",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopBiteWishlistItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid productId (SHOPBITE__WISHLIST_INVALID_PRODUCT_ID), unknown product (SHOPBITE__WISHLIST_PRODUCT_NOT_FOUND) or without/extras not a list of strings (SHOPBITE__WISHLIST_INVALID_CONFIGURATION)"
+          },
+          "403": {
+            "description": "Customer is not logged in (CHECKOUT__CUSTOMER_NOT_LOGGED_IN)"
+          }
+        },
+        "security": [
+          {
+            "StoreApiKey": []
+          }
+        ]
+      }
+    },
+    "/shopbite/wishlist/{id}": {
+      "delete": {
+        "tags": ["ShopBite"],
+        "summary": "Remove a wishlist item",
+        "description": "Removes one entry from the wishlist of the logged-in customer. Requires a logged-in customer (sw-context-token header of a customer session); guests get 403 CHECKOUT__CUSTOMER_NOT_LOGGED_IN.",
+        "operationId": "shopbite.wishlist.delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Wishlist item id",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Item removed"
+          },
+          "403": {
+            "description": "Customer is not logged in (CHECKOUT__CUSTOMER_NOT_LOGGED_IN)"
+          },
+          "404": {
+            "description": "No such item for this customer and sales channel (SHOPBITE__WISHLIST_ITEM_NOT_FOUND)"
+          }
+        },
+        "security": [
+          {
+            "StoreApiKey": []
+          }
+        ]
+      }
+    },
+    "/shopbite/wishlist/merge": {
+      "post": {
+        "tags": ["ShopBite"],
+        "summary": "Merge guest wishlist items",
+        "description": "Merges wishlist entries saved locally by a guest into the wishlist of the customer who just logged in. Same normalisation and deduplication as add. Items with an invalid productId, an unknown product or a malformed configuration are skipped; only the first 100 items are processed. Returns the full wishlist. Requires a logged-in customer (sw-context-token header of a customer session); guests get 403 CHECKOUT__CUSTOMER_NOT_LOGGED_IN.",
+        "operationId": "shopbite.wishlist.merge",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["items"],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "maxItems": 100,
+                    "items": {
+                      "type": "object",
+                      "required": ["productId"],
+                      "properties": {
+                        "productId": {
+                          "type": "string"
+                        },
+                        "without": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Names of deselected main ingredients"
+                        },
+                        "extras": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Product numbers of selected extras"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The full wishlist after merging, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShopBiteWishlist"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "items is not a list (SHOPBITE__WISHLIST_INVALID_ITEMS)"
+          },
+          "403": {
+            "description": "Customer is not logged in (CHECKOUT__CUSTOMER_NOT_LOGGED_IN)"
+          }
+        },
+        "security": [
+          {
+            "StoreApiKey": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -379,6 +579,62 @@
             }
           }
         }
+      },
+      "ShopBiteWishlistItem": {
+        "type": "object",
+        "description": "A configured dish on the customer's wishlist",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$"
+          },
+          "productId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$"
+          },
+          "productNumber": {
+            "type": "string"
+          },
+          "without": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Names of deselected main ingredients"
+          },
+          "extras": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Product numbers of selected extras"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "apiAlias": {
+            "type": "string",
+            "enum": ["shopbite_wishlist_item"]
+          }
+        },
+        "required": ["id", "productId", "productNumber", "without", "extras", "createdAt"]
+      },
+      "ShopBiteWishlist": {
+        "type": "object",
+        "properties": {
+          "elements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ShopBiteWishlistItem"
+            }
+          },
+          "apiAlias": {
+            "type": "string",
+            "enum": ["shopbite_wishlist"]
+          }
+        },
+        "required": ["elements"]
       }
     },
     "securitySchemes": {

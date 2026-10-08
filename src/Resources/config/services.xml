@@ -30,6 +30,12 @@
             <tag name="controller.service_arguments"/>
         </service>
 
+        <service id="ShopBite\Wishlist\SalesChannel\WishlistRoute">
+            <argument key="$wishlistItemRepository" type="service" id="shopbite_wishlist_item.repository"/>
+            <argument key="$productRepository" type="service" id="sales_channel.product.repository"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
         <service id="ShopBite\Service\CustomFieldsInstaller">
             <argument key="$customFieldSetRepository" type="service" id="custom_field_set.repository"/>
             <argument key="$customFieldSetRelationRepository" type="service" id="custom_field_set_relation.repository"/>
@@ -64,6 +70,10 @@
         </service>
 
         <service id="ShopBite\MultiChannelGroup\SalesChannel\MultiChannelGroupSalesChannelDefinition">
+            <tag name="shopware.entity.definition"/>
+        </service>
+
+        <service id="ShopBite\Wishlist\WishlistItemDefinition">
             <tag name="shopware.entity.definition"/>
         </service>
 
