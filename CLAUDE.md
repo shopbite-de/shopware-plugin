@@ -49,7 +49,7 @@ The plugin name for `bin/console plugin:*` commands is `ShopBitePlugin`.
 
 ### Feature-module layout
 
-`src/` is organised by domain feature, not by Shopware layer. Each feature that has a Store API route follows the same shape (BusinessHour, Holiday, MultiChannelGroup, Config):
+`src/` is organised by domain feature, not by Shopware layer. Each feature that has a Store API route follows the same shape (BusinessHour, Holiday, MultiChannelGroup, Config; Wishlist bundles several actions in one route):
 
 ```
 src/<Feature>/
@@ -76,6 +76,17 @@ Nothing is autowired. Adding an entity or route touches all of these:
 5. `src/Resources/Schema/StoreApi/shopbite.json` — OpenAPI schema for the Store API docs; keep it in sync with the Struct.
 6. Admin module under `src/Resources/app/administration/src/module/shopbite-<feature>/` and an import in `main.js` (see below).
 7. A `tests/Unit/.../<Feature>RouteTest.php`.
+
+### Wishlist (`src/Wishlist/`)
+
+Entity `shopbite_wishlist_item` (customer, sales channel, product + version, denormalised `product_number`, JSON `configuration` `{"without": [...], "extras": [...]}`), because the core wishlist only stores product ids. `WishlistRoute` has four `_loginRequired` Store API actions, all scoped to the logged-in customer and the current sales channel:
+
+- `POST /store-api/shopbite/wishlist` → `{"elements": Item[]}`, newest first
+- `POST /store-api/shopbite/wishlist/add` (`productId`, `without?`, `extras?`) → Item; returns the existing entry when product and normalised configuration match
+- `DELETE /store-api/shopbite/wishlist/{id}` → 204, 404 for foreign/unknown ids
+- `POST /store-api/shopbite/wishlist/merge` (`items[]`, max 100 processed) → full list; invalid items and unknown products are skipped
+
+`WishlistConfiguration` normalises `without`/`extras` (trim, drop empty, unique, sort) and is the only place that compares configurations. Products are loaded through `sales_channel.product.repository`, so inactive or invisible products count as unknown. Errors are `WishlistException` (`SHOPBITE__WISHLIST_*`).
 
 **Currently in progress:** `src/Voucher/` (Voucher + Redemption definitions) and its migration exist but are not yet registered in `services.xml` or wired to a route or admin module.
 

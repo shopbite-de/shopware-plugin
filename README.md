@@ -12,6 +12,7 @@ The ShopBite plugin extends Shopware 6 with specialized features tailored for th
 - **Holiday Management**: Configure store holidays and special closing days.
 - **Storefront Configuration**: Custom API endpoints to provide frontend-specific settings to the Nuxt storefront.
 - **Contact & Location**: Address, telephone and Google Business Profile link per sales channel, maintained in the plugin configuration and exposed via `/store-api/shopbite/config`.
+- **Wishlist for configured dishes**: Logged-in customers save a product together with deselected ingredients and extras (`/store-api/shopbite/wishlist`, `/add`, `/merge`, `DELETE /{id}`), scoped per customer and sales channel.
 - **Checkout Enhancements**:
     - Custom line item handling for container-based products.
     - Receipt print type processing for specialized fulfillment workflows.
