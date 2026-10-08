@@ -615,7 +615,7 @@
           },
           "apiAlias": {
             "type": "string",
-            "enum": ["shopbite_wishlist_item"]
+            "enum": ["shopbite_wishlist_entry"]
           }
         },
         "required": ["id", "productId", "productNumber", "without", "extras", "createdAt"]

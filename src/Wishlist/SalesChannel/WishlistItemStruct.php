@@ -43,9 +43,14 @@ final class WishlistItemStruct extends Struct
         );
     }
 
+    /**
+     * Not the entity name: for an alias that names an entity, the Store API
+     * encoder drops every property the entity definition does not know
+     * (`without`, `extras`).
+     */
     #[\Override]
     public function getApiAlias(): string
     {
-        return 'shopbite_wishlist_item';
+        return 'shopbite_wishlist_entry';
     }
 }
