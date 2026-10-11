@@ -68,6 +68,7 @@ final readonly class StaffRoleInstaller
         'product_option:delete',
         'product_property:create',
         'product_property:delete',
+        'product_stream:read',
         'product_tag:create',
         'product_tag:delete',
         'product_visibility:create',
