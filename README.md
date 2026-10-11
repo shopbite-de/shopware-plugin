@@ -56,8 +56,10 @@ Install and update also create two ACL roles with fixed ids for the [ShopBite ba
 
 | Role | May |
 | --- | --- |
-| `ShopBite Management` | menu, prices, variants, extras and extras groups, sections, SEO, opening hours, orders (71 privileges) |
-| `ShopBite Personal` | today's orders, done/cancel, pausing online orders, delivery time (17 privileges) |
+| `ShopBite Management` | menu, prices, variants, extras and extras groups, sections, SEO, opening hours, orders (69 privileges) |
+| `ShopBite Personal` | today's orders, done/cancel, pausing online orders, delivery time (15 privileges) |
+
+Ordering on/off and the delivery time go through `GET/PATCH /api/_action/shopbite/settings/{salesChannelId}` (`{"orderingOpen": bool, "deliveryMinutes": int}`, channel value with the global value as fallback), guarded by the plugin privileges `shopbite_settings:read` and `shopbite_settings:update`. Neither role has `system_config:*` rights.
 
 Accounts are managed on the command line (`--help` on each command):
 

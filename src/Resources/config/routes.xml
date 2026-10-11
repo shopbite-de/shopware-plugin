@@ -11,6 +11,7 @@
     <import resource="../../MultiChannelGroup/**/*Route.php" type="attribute" />
     <import resource="../../Wishlist/**/*Route.php" type="attribute" />
     <import resource="../../Passkey/**/*Route.php" type="attribute" />
+    <import resource="../../Settings/**/*Route.php" type="attribute" />
 
 
 </routes>
