@@ -10,14 +10,19 @@ use PHPUnit\Framework\TestCase;
 use ShopBite\Config\SalesChannel\ShopBiteConfigRoute;
 use ShopBite\Config\SalesChannel\ShopBiteConfigRouteResponse;
 use ShopBite\Config\SalesChannel\ShopBiteConfigStruct;
+use ShopBite\Settings\RestaurantSettings;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
+use Shopware\Core\System\SalesChannel\SalesChannelEntity;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 
 #[CoversClass(ShopBiteConfigRoute::class)]
 #[UsesClass(ShopBiteConfigStruct::class)]
 #[UsesClass(ShopBiteConfigRouteResponse::class)]
+#[UsesClass(RestaurantSettings::class)]
 class ShopBiteConfigRouteTest extends TestCase
 {
+    private const string NAVIGATION = '211cf9b2d1725130a517bbadf753a43c';
+
     public function testLoad(): void
     {
         $config = $this->load('sales-channel-id', [
@@ -37,6 +42,13 @@ class ShopBiteConfigRouteTest extends TestCase
         $this->assertSame('Dresden', $config->addressCity);
         $this->assertSame('+49 6104 71427', $config->telephone);
         $this->assertSame('https://maps.app.goo.gl/abc', $config->googleBusinessProfileUrl);
+    }
+
+    public function testMenuCategoryComesFromTheConfigElseTheNavigation(): void
+    {
+        $menu = '018dadb399837af3aa669c8fff4f4d6c';
+        $this->assertSame($menu, $this->load('sales-channel-id', ['isCheckoutEnabled' => true, 'defaultDeliveryTime' => 30, 'menuCategoryId' => $menu])->menuCategoryId);
+        $this->assertSame(self::NAVIGATION, $this->load('sales-channel-id', ['isCheckoutEnabled' => true, 'defaultDeliveryTime' => 30])->menuCategoryId);
     }
 
     public function testLoadReturnsNullForUnsetContactDetails(): void
@@ -76,7 +88,7 @@ class ShopBiteConfigRouteTest extends TestCase
     public function testLoadReadsValuesOfTheContextSalesChannel(): void
     {
         $systemConfigService = $this->createMock(SystemConfigService::class);
-        $systemConfigService->expects($this->exactly(7))
+        $systemConfigService->expects($this->exactly(8))
             ->method('get')
             ->willReturnCallback(static function (string $key, ?string $salesChannelId): mixed {
                 static::assertSame('other-sales-channel-id', $salesChannelId);
@@ -89,8 +101,7 @@ class ShopBiteConfigRouteTest extends TestCase
                 };
             });
 
-        $context = $this->createStub(SalesChannelContext::class);
-        $context->method('getSalesChannelId')->willReturn('other-sales-channel-id');
+        $context = $this->context('other-sales-channel-id');
 
         $config = new ShopBiteConfigRoute($systemConfigService)->load($context)->getObject();
 
@@ -108,9 +119,19 @@ class ShopBiteConfigRouteTest extends TestCase
                 ? $values[substr($key, \strlen('ShopBitePlugin.config.'))] ?? null
                 : null);
 
-        $context = $this->createStub(SalesChannelContext::class);
-        $context->method('getSalesChannelId')->willReturn($salesChannelId);
+        $context = $this->context($salesChannelId);
 
         return new ShopBiteConfigRoute($systemConfigService)->load($context)->getObject();
+    }
+
+    private function context(string $salesChannelId): SalesChannelContext
+    {
+        $salesChannel = new SalesChannelEntity();
+        $salesChannel->setNavigationCategoryId(self::NAVIGATION);
+        $context = $this->createStub(SalesChannelContext::class);
+        $context->method('getSalesChannelId')->willReturn($salesChannelId);
+        $context->method('getSalesChannel')->willReturn($salesChannel);
+
+        return $context;
     }
 }
