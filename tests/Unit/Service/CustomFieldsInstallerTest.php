@@ -37,7 +37,7 @@ class CustomFieldsInstallerTest extends TestCase
         $this->customFieldSetRepository->expects($this->once())
             ->method('upsert')
             ->with($this->callback(function (array $data) {
-                if (count($data) !== 4) {
+                if (count($data) !== 5) {
                     return false;
                 }
 
@@ -123,6 +123,7 @@ class CustomFieldsInstallerTest extends TestCase
                 ['id' => '0195191263d9703ca6385732168d80f8'],
                 ['id' => '7883d489fd114d80b1cc67a32ff64665'],
                 ['id' => '2a57924ff9ab45d3be0e944abfde3f9d'],
+                ['id' => '7c4c6700834a4839acabecf5c4f3e5b3'],
             ], $context);
         $this->customFieldSetRelationRepository->expects($this->never())
             ->method('delete');
