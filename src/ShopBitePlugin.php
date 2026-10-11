@@ -9,6 +9,7 @@ use Override;
 use function Psl\Type\instance_of;
 
 use ShopBite\Service\CustomFieldsInstaller;
+use ShopBite\Service\FoodLabelInstaller;
 use ShopBite\Service\OrderPrinterRoleInstaller;
 use ShopBite\Service\StaffRoleInstaller;
 use Shopware\Core\Framework\Plugin;
@@ -25,6 +26,7 @@ final class ShopBitePlugin extends Plugin
         $this->getCustomFieldsInstaller()->install($installContext->getContext());
         $this->getOrderPrinterRoleInstaller()->install($installContext->getContext());
         $this->getStaffRoleInstaller()->install($installContext->getContext());
+        $this->getFoodLabelInstaller()->install($installContext->getContext());
     }
 
     #[Override]
@@ -53,6 +55,7 @@ final class ShopBitePlugin extends Plugin
         $this->getCustomFieldsInstaller()->update($updateContext->getContext());
         $this->getOrderPrinterRoleInstaller()->update($updateContext->getContext());
         $this->getStaffRoleInstaller()->update($updateContext->getContext());
+        $this->getFoodLabelInstaller()->update($updateContext->getContext());
     }
 
     private function getCustomFieldsInstaller(): CustomFieldsInstaller
@@ -91,5 +94,18 @@ final class ShopBitePlugin extends Plugin
         }
 
         return new StaffRoleInstaller($this->container->get('acl_role.repository'));
+    }
+
+    /**
+     * @psalm-suppress PossiblyNullReference The container is set before any lifecycle method runs
+     * @psalm-suppress ArgumentTypeCoercion property_group.repository is an EntityRepository<PropertyGroupCollection>
+     */
+    private function getFoodLabelInstaller(): FoodLabelInstaller
+    {
+        if ($this->container->has(FoodLabelInstaller::class)) {
+            return instance_of(FoodLabelInstaller::class)->coerce($this->container->get(FoodLabelInstaller::class));
+        }
+
+        return new FoodLabelInstaller($this->container->get('property_group.repository'));
     }
 }

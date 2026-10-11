@@ -70,6 +70,10 @@ bin/console shopbite:staff:list
 
 Staff need at least one branch; management without a branch sees all. Branches are stored in the user custom field `shopbite_sales_channel_ids` (custom field set `shopbite_user_set`). Like the order printer role, the staff roles are reset on update and removed on uninstall without *keep user data*.
 
+## Allergens and additives
+
+Install and update create the property groups **Allergene** (the 14 allergens of the EU food information regulation, cereals and nuts by name, codes A-R) and **Zusatzstoffe** (additives that German menus have to mark, codes 1-12). The code of each option is stored in its custom field `shopbite_code`, the product custom field `shopbite_allergens_checked` marks a dish whose lists are complete. A group of the same name that already exists is adopted: matching options keep their id and only get code and position, nothing is duplicated. The groups stay on uninstall because dishes reference them. The catalogue (`src/FoodLabel/FoodLabelCatalogue.php`) is the same as in the backoffice, where the restaurant ticks them per dish.
+
 ## Requirements
 
 - Shopware 6.7.0 or higher

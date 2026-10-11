@@ -50,6 +50,11 @@
             <argument key="$aclRoleRepository" type="service" id="acl_role.repository"/>
         </service>
 
+        <!-- Allergens and additives (property groups with codes) -->
+        <service id="ShopBite\Service\FoodLabelInstaller">
+            <argument key="$propertyGroupRepository" type="service" id="property_group.repository"/>
+        </service>
+
         <service id="ShopBite\Staff\StaffDirectory">
             <argument key="$userRepository" type="service" id="user.repository"/>
             <argument key="$aclUserRoleRepository" type="service" id="acl_user_role.repository"/>
