@@ -29,6 +29,11 @@ final readonly class CustomFieldsInstaller
     public const string SHOPBITE_CODE = 'shopbite_code';
     /** The allergen and additive lists of a dish are complete (also when empty). */
     public const string SHOPBITE_ALLERGENS_CHECKED = 'shopbite_allergens_checked';
+    private const string ORDER_CUSTOM_FIELDSET_NAME = 'shopbite_order_set';
+    /** "Jetzt drucken" in the backoffice: when the receipt was requested (again). */
+    public const string SHOPBITE_PRINT_REQUESTED_AT = 'shopbite_print_requested_at';
+    /** Set by the order printer after every successful print. */
+    public const string SHOPBITE_PRINTED_AT = 'shopbite_printed_at';
 
     private const array CUSTOM_FIELDSET = [
         'id' => '0198be8b24a0722cac46b07e3a80f49b',
@@ -228,6 +233,64 @@ final readonly class CustomFieldsInstaller
         ],
     ];
 
+    private const array ORDER_CUSTOM_FIELDSET = [
+        'id' => '7c4c6700834a4839acabecf5c4f3e5b3',
+        'name' => self::ORDER_CUSTOM_FIELDSET_NAME,
+        'config' => [
+            'label' => [
+                'en-GB' => 'ShopBite Receipt',
+                'de-DE' => 'ShopBite Bon',
+                Defaults::LANGUAGE_SYSTEM => 'ShopBite Receipt',
+            ],
+        ],
+        'customFields' => [
+            [
+                'id' => '400421443d34408f9d658564ec1deef6',
+                'name' => self::SHOPBITE_PRINT_REQUESTED_AT,
+                'type' => CustomFieldTypes::DATETIME,
+                'config' => [
+                    'label' => [
+                        'en-GB' => 'Print requested at',
+                        'de-DE' => 'Druck angefordert um',
+                        Defaults::LANGUAGE_SYSTEM => 'Print requested at',
+                    ],
+                    'helpText' => [
+                        'en-GB' => 'Set by "Jetzt drucken" in the backoffice; the order printer prints the receipt again.',
+                        'de-DE' => 'Wird von „Jetzt drucken“ im Backoffice gesetzt; der Bondrucker druckt den Bon erneut.',
+                        Defaults::LANGUAGE_SYSTEM => 'Set by "Jetzt drucken" in the backoffice; the order printer prints the receipt again.',
+                    ],
+                    'componentName' => 'sw-field',
+                    'type' => 'datetime',
+                    'customFieldType' => 'date',
+                    'dateType' => 'datetime',
+                    'customFieldPosition' => 1,
+                ],
+            ],
+            [
+                'id' => '79880f7ccd2140ef817d96150f94bdeb',
+                'name' => self::SHOPBITE_PRINTED_AT,
+                'type' => CustomFieldTypes::DATETIME,
+                'config' => [
+                    'label' => [
+                        'en-GB' => 'Printed at',
+                        'de-DE' => 'Gedruckt um',
+                        Defaults::LANGUAGE_SYSTEM => 'Printed at',
+                    ],
+                    'helpText' => [
+                        'en-GB' => 'Set by the order printer after every successful print.',
+                        'de-DE' => 'Wird vom Bondrucker nach jedem erfolgreichen Druck gesetzt.',
+                        Defaults::LANGUAGE_SYSTEM => 'Set by the order printer after every successful print.',
+                    ],
+                    'componentName' => 'sw-field',
+                    'type' => 'datetime',
+                    'customFieldType' => 'date',
+                    'dateType' => 'datetime',
+                    'customFieldPosition' => 2,
+                ],
+            ],
+        ],
+    ];
+
     /**
      * @param EntityRepository<CustomFieldSetCollection>         $customFieldSetRepository
      * @param EntityRepository<CustomFieldSetRelationCollection> $customFieldSetRelationRepository
@@ -245,6 +308,7 @@ final readonly class CustomFieldsInstaller
             self::CATEGORY_CUSTOM_FIELDSET,
             self::USER_CUSTOM_FIELDSET,
             self::PROPERTY_OPTION_CUSTOM_FIELDSET,
+            self::ORDER_CUSTOM_FIELDSET,
         ], $context);
     }
 
@@ -264,6 +328,7 @@ final readonly class CustomFieldsInstaller
             ['id' => self::CATEGORY_CUSTOM_FIELDSET['id']],
             ['id' => self::USER_CUSTOM_FIELDSET['id']],
             ['id' => self::PROPERTY_OPTION_CUSTOM_FIELDSET['id']],
+            ['id' => self::ORDER_CUSTOM_FIELDSET['id']],
         ], $context);
     }
 
@@ -275,6 +340,7 @@ final readonly class CustomFieldsInstaller
             self::CATEGORY_CUSTOM_FIELDSET_NAME => ['id' => '0195191263d9703ca63857321a007137', 'entityName' => 'category'],
             self::USER_CUSTOM_FIELDSET_NAME => ['id' => '3a7f247ccc574eaba89c03083ecf6ec6', 'entityName' => 'user'],
             self::PROPERTY_OPTION_CUSTOM_FIELDSET_NAME => ['id' => '3d93acca858c4899ac8d3e7abd3dcb6d', 'entityName' => 'property_group_option'],
+            self::ORDER_CUSTOM_FIELDSET_NAME => ['id' => '6e1132387bc34e8293be2797ca868b92', 'entityName' => 'order'],
         ];
 
         $upserts = [];
@@ -320,6 +386,7 @@ final readonly class CustomFieldsInstaller
             new EqualsFilter('name', self::CATEGORY_CUSTOM_FIELDSET_NAME),
             new EqualsFilter('name', self::USER_CUSTOM_FIELDSET_NAME),
             new EqualsFilter('name', self::PROPERTY_OPTION_CUSTOM_FIELDSET_NAME),
+            new EqualsFilter('name', self::ORDER_CUSTOM_FIELDSET_NAME),
         ]));
 
         $entities = $this->customFieldSetRepository->search($criteria, $context)->getEntities();
