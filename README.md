@@ -56,7 +56,7 @@ Install and update also create two ACL roles with fixed ids for the [ShopBite ba
 
 | Role | May |
 | --- | --- |
-| `ShopBite Management` | menu, prices, variants, extras, sections, SEO, opening hours, orders (65 privileges) |
+| `ShopBite Management` | menu, prices, variants, extras and extras groups, sections, SEO, opening hours, orders (71 privileges) |
 | `ShopBite Personal` | today's orders, done/cancel, pausing online orders, delivery time (17 privileges) |
 
 Accounts are managed on the command line (`--help` on each command):
