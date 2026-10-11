@@ -110,6 +110,10 @@ Two ACL roles with **fixed ids** (`ShopBite Management`, `ShopBite Personal`) fo
 
 `StaffDirectory` holds the account logic behind `shopbite:staff:create|update|list` (Symfony commands in `src/Staff/Command/`, registered with the `console.command` tag). Branch binding is the user custom field `shopbite_sales_channel_ids` (set `shopbite_user_set` in `CustomFieldsInstaller`); staff without a branch are refused, management without one sees all. The backoffice cannot create users itself (needs a `user-verified` token), that is why this lives in the CLI.
 
+### Restaurant settings (`src/Settings/`)
+
+`SettingsRoute` (Admin API, `GET/PATCH /api/_action/shopbite/settings/{salesChannelId}`) reads and writes what a restaurant changes during service: `orderingOpen` (`isCheckoutEnabled`) and `deliveryMinutes` (`defaultDeliveryTime`), per sales channel with the global value as fallback (`RestaurantSettings`). Guarded by `_acl` with the plugin's own privileges `shopbite_settings:read|update`, which both staff roles carry instead of `system_config:*` (that would allow writing the whole system configuration, passkey settings included). `RestaurantSettings::changesFrom()` accepts only these two keys; add new everyday settings there.
+
 ### Allergens and additives (`src/FoodLabel/`, `src/Service/FoodLabelInstaller.php`)
 
 `FoodLabelCatalogue` is the fixed list (key → code, name) of the 14 LMIV allergens (cereals and nuts by name) and the 12 additives, identical to `../backoffice/shared/utils/labels.ts` — change both together. `FoodLabelInstaller` upserts the property groups `Allergene` and `Zusatzstoffe` on install/update: found by fixed id, else adopted by name (the backoffice may have created them first), options matched by name keep their id and only get `position` and the custom field `shopbite_code`. Never removed on uninstall (products reference the options). Product custom field `shopbite_allergens_checked` = the dish's lists are complete; the storefront must not show "no allergens" without it.
