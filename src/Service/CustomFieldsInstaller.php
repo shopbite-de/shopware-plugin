@@ -24,6 +24,11 @@ final readonly class CustomFieldsInstaller
     private const string USER_CUSTOM_FIELDSET_NAME = 'shopbite_user_set';
     /** Sales channels (branches) a backoffice user works for; empty = all (management only). */
     public const string SHOPBITE_SALES_CHANNEL_IDS = 'shopbite_sales_channel_ids';
+    private const string PROPERTY_OPTION_CUSTOM_FIELDSET_NAME = 'shopbite_property_option_set';
+    /** Code of an allergen or additive option (A-R, 1-12), see FoodLabelCatalogue. */
+    public const string SHOPBITE_CODE = 'shopbite_code';
+    /** The allergen and additive lists of a dish are complete (also when empty). */
+    public const string SHOPBITE_ALLERGENS_CHECKED = 'shopbite_allergens_checked';
 
     private const array CUSTOM_FIELDSET = [
         'id' => '0198be8b24a0722cac46b07e3a80f49b',
@@ -104,6 +109,27 @@ final readonly class CustomFieldsInstaller
                     'customFieldPosition' => 3,
                 ],
             ],
+            [
+                'id' => '703040431f5540f2a3138262057636a8',
+                'name' => self::SHOPBITE_ALLERGENS_CHECKED,
+                'type' => CustomFieldTypes::BOOL,
+                'config' => [
+                    'label' => [
+                        'en-GB' => 'Allergens and additives checked',
+                        'de-DE' => 'Allergene und Zusatzstoffe geprüft',
+                        Defaults::LANGUAGE_SYSTEM => 'Allergens and additives checked',
+                    ],
+                    'helpText' => [
+                        'en-GB' => 'The properties "Allergene" and "Zusatzstoffe" of this dish are complete, also when none is selected.',
+                        'de-DE' => 'Die Eigenschaften "Allergene" und "Zusatzstoffe" dieses Gerichts sind vollständig, auch wenn keine ausgewählt ist.',
+                        Defaults::LANGUAGE_SYSTEM => 'The properties "Allergene" and "Zusatzstoffe" of this dish are complete, also when none is selected.',
+                    ],
+                    'componentName' => 'sw-field',
+                    'type' => 'checkbox',
+                    'customFieldType' => 'checkbox',
+                    'customFieldPosition' => 4,
+                ],
+            ],
         ],
     ];
 
@@ -170,6 +196,38 @@ final readonly class CustomFieldsInstaller
         ],
     ];
 
+    private const array PROPERTY_OPTION_CUSTOM_FIELDSET = [
+        'id' => '2a57924ff9ab45d3be0e944abfde3f9d',
+        'name' => self::PROPERTY_OPTION_CUSTOM_FIELDSET_NAME,
+        'config' => [
+            'label' => [
+                'en-GB' => 'ShopBite Property',
+                'de-DE' => 'ShopBite Eigenschaft',
+                Defaults::LANGUAGE_SYSTEM => 'ShopBite Property',
+            ],
+        ],
+        'customFields' => [
+            [
+                'id' => '42ea560f24a540ac866e95c31b57c95b',
+                'name' => self::SHOPBITE_CODE,
+                'type' => CustomFieldTypes::TEXT,
+                'config' => [
+                    'label' => [
+                        'en-GB' => 'Code on the menu',
+                        'de-DE' => 'Kürzel auf der Karte',
+                        Defaults::LANGUAGE_SYSTEM => 'Code on the menu',
+                    ],
+                    'helpText' => [
+                        'en-GB' => 'Allergen (A-R) or additive (1-12) code shown next to the dish. Set by the plugin.',
+                        'de-DE' => 'Kürzel des Allergens (A-R) oder Zusatzstoffs (1-12) neben dem Gericht. Wird vom Plugin gesetzt.',
+                        Defaults::LANGUAGE_SYSTEM => 'Allergen (A-R) or additive (1-12) code shown next to the dish. Set by the plugin.',
+                    ],
+                    'customFieldPosition' => 1,
+                ],
+            ],
+        ],
+    ];
+
     /**
      * @param EntityRepository<CustomFieldSetCollection>         $customFieldSetRepository
      * @param EntityRepository<CustomFieldSetRelationCollection> $customFieldSetRelationRepository
@@ -186,6 +244,7 @@ final readonly class CustomFieldsInstaller
             self::CUSTOM_FIELDSET,
             self::CATEGORY_CUSTOM_FIELDSET,
             self::USER_CUSTOM_FIELDSET,
+            self::PROPERTY_OPTION_CUSTOM_FIELDSET,
         ], $context);
     }
 
@@ -204,6 +263,7 @@ final readonly class CustomFieldsInstaller
             ['id' => self::CUSTOM_FIELDSET['id']],
             ['id' => self::CATEGORY_CUSTOM_FIELDSET['id']],
             ['id' => self::USER_CUSTOM_FIELDSET['id']],
+            ['id' => self::PROPERTY_OPTION_CUSTOM_FIELDSET['id']],
         ], $context);
     }
 
@@ -214,6 +274,7 @@ final readonly class CustomFieldsInstaller
             self::CUSTOM_FIELDSET_NAME => ['id' => '0198be99dd757130a9a99df0f878bf05', 'entityName' => 'product'],
             self::CATEGORY_CUSTOM_FIELDSET_NAME => ['id' => '0195191263d9703ca63857321a007137', 'entityName' => 'category'],
             self::USER_CUSTOM_FIELDSET_NAME => ['id' => '3a7f247ccc574eaba89c03083ecf6ec6', 'entityName' => 'user'],
+            self::PROPERTY_OPTION_CUSTOM_FIELDSET_NAME => ['id' => '3d93acca858c4899ac8d3e7abd3dcb6d', 'entityName' => 'property_group_option'],
         ];
 
         $upserts = [];
@@ -258,6 +319,7 @@ final readonly class CustomFieldsInstaller
             new EqualsFilter('name', self::CUSTOM_FIELDSET_NAME),
             new EqualsFilter('name', self::CATEGORY_CUSTOM_FIELDSET_NAME),
             new EqualsFilter('name', self::USER_CUSTOM_FIELDSET_NAME),
+            new EqualsFilter('name', self::PROPERTY_OPTION_CUSTOM_FIELDSET_NAME),
         ]));
 
         $entities = $this->customFieldSetRepository->search($criteria, $context)->getEntities();
