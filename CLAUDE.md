@@ -118,6 +118,10 @@ Two ACL roles with **fixed ids** (`ShopBite Management`, `ShopBite Personal`) fo
 
 WebAuthn login for the backoffice. `PasskeyService` builds creation/request options (user verification and resident key required, attestation `none`, ES256/RS256), keeps them for five minutes in `cache.object` (one-time) and verifies with `web-auth/webauthn-lib` 5 (`CeremonyStepManagerFactory::setAllowedOrigins()` from the plugin config `passkeyRpId`/`passkeyOrigins`). The verified `CredentialRecord` is stored as JSON in `shopbite_passkey` (plain DBAL in `PasskeyStore`, deliberately no DAL entity so the generic Admin API does not expose it); the user handle is the Shopware user id. `PasskeyGrant` (`grant_type=shopbite_passkey`, parameter `credential`) is enabled by `PasskeyGrantSubscriber` on kernel.request priority 127, right after Shopware's `ApiAuthenticationListener::setupOAuth()` (128). It calls `finalizeScopes()` with `'password'`: Shopware's `ScopeRepository` grants `write` only to the password grant, any other grant type would get read-only tokens. `PasskeyRoute` (Admin API, own passkeys only, `login-options` with `auth_required: false`). Shopware runs as FrankenPHP worker: after changing plugin code in a running container, restart it.
 
+### Receipt print request (`CustomFieldsInstaller`, set `shopbite_order_set`)
+
+Order custom fields `shopbite_print_requested_at` (set by "Jetzt drucken" in the backoffice) and `shopbite_printed_at` (set by `../order-printer` after every print), both `datetime`, ISO UTC. The order printer reprints orders whose request is newer than the last print; nothing else in the plugin reads them.
+
 ### Administration (`src/Resources/app/administration/`)
 
 Plain Shopware admin modules (`Shopware.Module.register`, list + detail pages, de-DE/en-GB snippets), all nested under the `shopbite.main.index` navigation parent. The compiled bundle in `src/Resources/public/administration/` **is committed**; after changing admin JS, rebuild it with Shopware's admin build (`make build-administration` / `make watch-admin` in `../shopware/`, or `bin/build-administration.sh` inside this repo's `web` container) and commit the output.
