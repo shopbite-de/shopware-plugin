@@ -10,6 +10,7 @@ use function Psl\Type\instance_of;
 
 use ShopBite\Service\CustomFieldsInstaller;
 use ShopBite\Service\OrderPrinterRoleInstaller;
+use ShopBite\Service\StaffRoleInstaller;
 use Shopware\Core\Framework\Plugin;
 use Shopware\Core\Framework\Plugin\Context\ActivateContext;
 use Shopware\Core\Framework\Plugin\Context\InstallContext;
@@ -23,6 +24,7 @@ final class ShopBitePlugin extends Plugin
     {
         $this->getCustomFieldsInstaller()->install($installContext->getContext());
         $this->getOrderPrinterRoleInstaller()->install($installContext->getContext());
+        $this->getStaffRoleInstaller()->install($installContext->getContext());
     }
 
     #[Override]
@@ -36,6 +38,7 @@ final class ShopBitePlugin extends Plugin
 
         $this->getCustomFieldsInstaller()->uninstall($uninstallContext->getContext());
         $this->getOrderPrinterRoleInstaller()->uninstall($uninstallContext->getContext());
+        $this->getStaffRoleInstaller()->uninstall($uninstallContext->getContext());
     }
 
     #[Override]
@@ -49,6 +52,7 @@ final class ShopBitePlugin extends Plugin
     {
         $this->getCustomFieldsInstaller()->update($updateContext->getContext());
         $this->getOrderPrinterRoleInstaller()->update($updateContext->getContext());
+        $this->getStaffRoleInstaller()->update($updateContext->getContext());
     }
 
     private function getCustomFieldsInstaller(): CustomFieldsInstaller
@@ -74,5 +78,18 @@ final class ShopBitePlugin extends Plugin
         }
 
         return new OrderPrinterRoleInstaller($this->container->get('acl_role.repository'));
+    }
+
+    /**
+     * @psalm-suppress PossiblyNullReference The container is set before any lifecycle method runs
+     * @psalm-suppress ArgumentTypeCoercion acl_role.repository is an EntityRepository<AclRoleCollection>
+     */
+    private function getStaffRoleInstaller(): StaffRoleInstaller
+    {
+        if ($this->container->has(StaffRoleInstaller::class)) {
+            return instance_of(StaffRoleInstaller::class)->coerce($this->container->get(StaffRoleInstaller::class));
+        }
+
+        return new StaffRoleInstaller($this->container->get('acl_role.repository'));
     }
 }

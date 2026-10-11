@@ -50,6 +50,26 @@ To connect a printer: *Settings › System › Integrations › Add integration*
 
 Re-running install or update leaves an up-to-date role untouched and resets changed privileges, so don't edit the role by hand. Uninstalling with *keep user data* keeps the role, because integrations reference it.
 
+## Backoffice roles and accounts
+
+Install and update also create two ACL roles with fixed ids for the [ShopBite backoffice](https://github.com/shopbite-de/backoffice), where restaurant staff log in with their own Shopware user:
+
+| Role | May |
+| --- | --- |
+| `ShopBite Management` | menu, prices, variants, extras, sections, SEO, opening hours, orders (64 privileges) |
+| `ShopBite Personal` | today's orders, done/cancel, pausing online orders, delivery time (17 privileges) |
+
+Accounts are managed on the command line (`--help` on each command):
+
+```bash
+bin/console shopbite:staff:create owner --role=management --name="Anna Rossi"
+bin/console shopbite:staff:create counter --role=personal --branch=<salesChannelId> --generate-password
+bin/console shopbite:staff:update counter --branch=<salesChannelId> | --role=... | --generate-password | --deactivate
+bin/console shopbite:staff:list
+```
+
+Staff need at least one branch; management without a branch sees all. Branches are stored in the user custom field `shopbite_sales_channel_ids` (custom field set `shopbite_user_set`). Like the order printer role, the staff roles are reset on update and removed on uninstall without *keep user data*.
+
 ## Requirements
 
 - Shopware 6.7.0 or higher

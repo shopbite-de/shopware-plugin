@@ -104,6 +104,12 @@ Custom field sets are defined as constant arrays with **hard-coded UUIDs** and u
 
 Creates/updates the `acl_role` `order-printer` (looked up by name) on install and update, and deletes it on uninstall without `keepUserData()`. `PRIVILEGES` must stay sorted and match exactly what `../order-printer/src/Infra/Shopware/Api/` requests: every association or filter path in a search needs `<entity>:read` (`AclCriteriaValidator`). If you change it, update the tables in the README, `../order-printer/docs/dokploy-deployment.md` and the homepage docs.
 
+### Backoffice staff (`src/Service/StaffRoleInstaller.php`, `src/Staff/`)
+
+Two ACL roles with **fixed ids** (`ShopBite Management`, `ShopBite Personal`) for the ShopBite backoffice (`../backoffice/`), created/updated on install and update, deleted on uninstall without `keepUserData()`. The backoffice logs in with the person's own user, so these privileges are its whole permission model; it derives what to show from them (`../backoffice/server/utils/profile.ts`, Management = `product:update`). When the backoffice requests a new entity or association, add the privilege here and in `../backoffice/docs/notes/*-privileges.json`; keep both lists sorted.
+
+`StaffDirectory` holds the account logic behind `shopbite:staff:create|update|list` (Symfony commands in `src/Staff/Command/`, registered with the `console.command` tag). Branch binding is the user custom field `shopbite_sales_channel_ids` (set `shopbite_user_set` in `CustomFieldsInstaller`); staff without a branch are refused, management without one sees all. The backoffice cannot create users itself (needs a `user-verified` token), that is why this lives in the CLI.
+
 ### Administration (`src/Resources/app/administration/`)
 
 Plain Shopware admin modules (`Shopware.Module.register`, list + detail pages, de-DE/en-GB snippets), all nested under the `shopbite.main.index` navigation parent. The compiled bundle in `src/Resources/public/administration/` **is committed**; after changing admin JS, rebuild it with Shopware's admin build (`make build-administration` / `make watch-admin` in `../shopware/`, or `bin/build-administration.sh` inside this repo's `web` container) and commit the output.

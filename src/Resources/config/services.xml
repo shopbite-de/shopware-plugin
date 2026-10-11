@@ -45,6 +45,33 @@
             <argument key="$aclRoleRepository" type="service" id="acl_role.repository"/>
         </service>
 
+        <!-- Backoffice staff: roles and accounts (shopbite:staff:*) -->
+        <service id="ShopBite\Service\StaffRoleInstaller">
+            <argument key="$aclRoleRepository" type="service" id="acl_role.repository"/>
+        </service>
+
+        <service id="ShopBite\Staff\StaffDirectory">
+            <argument key="$userRepository" type="service" id="user.repository"/>
+            <argument key="$aclUserRoleRepository" type="service" id="acl_user_role.repository"/>
+            <argument key="$salesChannelRepository" type="service" id="sales_channel.repository"/>
+            <argument key="$languageRepository" type="service" id="language.repository"/>
+        </service>
+
+        <service id="ShopBite\Staff\Command\StaffCreateCommand">
+            <argument type="service" id="ShopBite\Staff\StaffDirectory"/>
+            <tag name="console.command"/>
+        </service>
+
+        <service id="ShopBite\Staff\Command\StaffUpdateCommand">
+            <argument type="service" id="ShopBite\Staff\StaffDirectory"/>
+            <tag name="console.command"/>
+        </service>
+
+        <service id="ShopBite\Staff\Command\StaffListCommand">
+            <argument type="service" id="ShopBite\Staff\StaffDirectory"/>
+            <tag name="console.command"/>
+        </service>
+
         <service id="ShopBite\Checkout\Cart\ReceiptPrintTypeProcessor">
             <argument type="service" id="product.repository"/>
             <tag name="shopware.cart.processor" priority="4500"/>
