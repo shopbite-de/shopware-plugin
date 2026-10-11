@@ -71,4 +71,27 @@
         </input-field>
     </card>
 
+    <card>
+        <title>Backoffice passkeys</title>
+        <title lang="de-DE">Backoffice: Anmeldung mit Fingerabdruck</title>
+
+        <input-field type="text">
+            <name>passkeyRpId</name>
+            <label>Relying party id (backoffice host)</label>
+            <label lang="de-DE">Relying-Party-ID (Host des Backoffice)</label>
+            <placeholder>backoffice.pizzeria-lafattoria.de</placeholder>
+            <helpText>Host name of the ShopBite backoffice, without https://. Passkeys only work on this host. Empty = passkeys off.</helpText>
+            <helpText lang="de-DE">Hostname des ShopBite Backoffice ohne https://. Passkeys funktionieren nur unter diesem Host. Leer = aus.</helpText>
+        </input-field>
+
+        <input-field type="text">
+            <name>passkeyOrigins</name>
+            <label>Allowed origins</label>
+            <label lang="de-DE">Erlaubte Origins</label>
+            <placeholder>https://backoffice.pizzeria-lafattoria.de</placeholder>
+            <helpText>Full URL(s) of the backoffice, comma separated.</helpText>
+            <helpText lang="de-DE">Vollständige URL(s) des Backoffice, durch Komma getrennt.</helpText>
+        </input-field>
+    </card>
+
 </config>

@@ -10,6 +10,7 @@
     <import resource="../../BusinessHour/**/*Route.php" type="attribute" />
     <import resource="../../MultiChannelGroup/**/*Route.php" type="attribute" />
     <import resource="../../Wishlist/**/*Route.php" type="attribute" />
+    <import resource="../../Passkey/**/*Route.php" type="attribute" />
 
 
 </routes>

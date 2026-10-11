@@ -29,7 +29,8 @@
     "require": {
         "php": "^8.4",
         "shopware/core": "~6.7.0",
-        "php-standard-library/php-standard-library": "^6"
+        "php-standard-library/php-standard-library": "^6",
+        "web-auth/webauthn-lib": "^5.2"
     },
 
     "config": {
