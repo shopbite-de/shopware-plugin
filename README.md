@@ -74,6 +74,12 @@ Staff need at least one branch; management without a branch sees all. Branches a
 
 Install and update create the property groups **Allergene** (the 14 allergens of the EU food information regulation, cereals and nuts by name, codes A-R) and **Zusatzstoffe** (additives that German menus have to mark, codes 1-12). The code of each option is stored in its custom field `shopbite_code`, the product custom field `shopbite_allergens_checked` marks a dish whose lists are complete. A group of the same name that already exists is adopted: matching options keep their id and only get code and position, nothing is duplicated. The groups stay on uninstall because dishes reference them. The catalogue (`src/FoodLabel/FoodLabelCatalogue.php`) is the same as in the backoffice, where the restaurant ticks them per dish.
 
+## Passkeys for the backoffice
+
+People log in to the backoffice with fingerprint or Face ID instead of a password (WebAuthn, `web-auth/webauthn-lib`). The plugin stores the passkeys (table `shopbite_passkey`, linked to the Shopware user) and adds the OAuth grant `shopbite_passkey` to `/api/oauth/token`, which answers like a password login. Routes for the logged-in user: `GET /api/_action/shopbite/passkey`, `POST …/register-options`, `POST …/register`, `DELETE …/{id}`; open: `POST …/login-options`.
+
+Switch it on in the plugin configuration (card "Backoffice passkeys"): **relying party id** = host of the backoffice (e.g. `backoffice.pizzeria-lafattoria.de`), **origins** = its URL(s). Without both, the grant and the routes are off. Passkeys only work on that host; a deactivated user cannot log in with a passkey either.
+
 ## Requirements
 
 - Shopware 6.7.0 or higher

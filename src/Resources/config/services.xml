@@ -50,6 +50,36 @@
             <argument key="$aclRoleRepository" type="service" id="acl_role.repository"/>
         </service>
 
+        <!-- Passkeys for the backoffice (WebAuthn, grant_type=shopbite_passkey) -->
+        <service id="ShopBite\Passkey\PasskeyConfig">
+            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
+        </service>
+
+        <service id="ShopBite\Passkey\PasskeyStore">
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
+        </service>
+
+        <service id="ShopBite\Passkey\PasskeyService">
+            <argument type="service" id="ShopBite\Passkey\PasskeyStore"/>
+            <argument type="service" id="ShopBite\Passkey\PasskeyConfig"/>
+            <argument type="service" id="cache.object"/>
+        </service>
+
+        <service id="ShopBite\Passkey\PasskeyGrantSubscriber">
+            <argument type="service" id="shopware.api.authorization_server"/>
+            <argument type="service" id="Shopware\Core\Framework\Api\OAuth\UserRepository"/>
+            <argument type="service" id="Shopware\Core\Framework\Api\OAuth\RefreshTokenRepository"/>
+            <argument type="service" id="ShopBite\Passkey\PasskeyService"/>
+            <argument>%shopware.api.access_token_ttl%</argument>
+            <argument>%shopware.api.refresh_token_ttl%</argument>
+            <tag name="kernel.event_subscriber"/>
+        </service>
+
+        <service id="ShopBite\Passkey\Api\PasskeyRoute" public="true">
+            <argument type="service" id="ShopBite\Passkey\PasskeyService"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
         <!-- Allergens and additives (property groups with codes) -->
         <service id="ShopBite\Service\FoodLabelInstaller">
             <argument key="$propertyGroupRepository" type="service" id="property_group.repository"/>
