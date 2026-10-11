@@ -32,7 +32,7 @@ final readonly class StaffRoleInstaller
     /**
      * Everything the backoffice requests for the menu, opening hours, orders and settings.
      * Every association or filter path of a search needs <entity>:read (AclCriteriaValidator).
-     * system_config:* goes away once the backoffice uses its own settings route (plugin#34).
+     * Ordering and delivery time go through the plugin's settings route (shopbite_settings:*).
      */
     public const array MANAGEMENT_PRIVILEGES = [
         'category:create',
@@ -95,14 +95,12 @@ final readonly class StaffRoleInstaller
         'shopbite_business_hour:create',
         'shopbite_business_hour:delete',
         'shopbite_business_hour:read',
+        'shopbite_settings:read',
+        'shopbite_settings:update',
         'state_machine:read',
         'state_machine_history:create',
         'state_machine_state:read',
         'state_machine_transition:read',
-        'system_config:create',
-        'system_config:delete',
-        'system_config:read',
-        'system_config:update',
         'tag:create',
         'tag:read',
         'tax:read',
@@ -110,7 +108,7 @@ final readonly class StaffRoleInstaller
 
     /**
      * Today's orders with deliveries and line items, the order state transitions, and the
-     * ordering settings per sales channel (system_config:delete: Shopware deletes empty values).
+     * ordering settings per sales channel (plugin settings route, no system_config).
      */
     public const array PERSONAL_PRIVILEGES = [
         'order:read',
@@ -122,14 +120,12 @@ final readonly class StaffRoleInstaller
         'order_transaction:read',
         'sales_channel:read',
         'shipping_method:read',
+        'shopbite_settings:read',
+        'shopbite_settings:update',
         'state_machine:read',
         'state_machine_history:create',
         'state_machine_state:read',
         'state_machine_transition:read',
-        'system_config:create',
-        'system_config:delete',
-        'system_config:read',
-        'system_config:update',
     ];
 
     /**

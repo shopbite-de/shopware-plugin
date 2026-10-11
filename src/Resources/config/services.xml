@@ -50,6 +50,16 @@
             <argument key="$aclRoleRepository" type="service" id="acl_role.repository"/>
         </service>
 
+        <!-- Restaurant settings for the backoffice (own privileges instead of system_config) -->
+        <service id="ShopBite\Settings\RestaurantSettings">
+            <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
+        </service>
+        <service id="ShopBite\Settings\Api\SettingsRoute" public="true">
+            <argument type="service" id="ShopBite\Settings\RestaurantSettings"/>
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
+            <tag name="controller.service_arguments"/>
+        </service>
+
         <!-- Passkeys for the backoffice (WebAuthn, grant_type=shopbite_passkey) -->
         <service id="ShopBite\Passkey\PasskeyConfig">
             <argument type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService"/>
