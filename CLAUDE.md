@@ -110,6 +110,10 @@ Two ACL roles with **fixed ids** (`ShopBite Management`, `ShopBite Personal`) fo
 
 `StaffDirectory` holds the account logic behind `shopbite:staff:create|update|list` (Symfony commands in `src/Staff/Command/`, registered with the `console.command` tag). Branch binding is the user custom field `shopbite_sales_channel_ids` (set `shopbite_user_set` in `CustomFieldsInstaller`); staff without a branch are refused, management without one sees all. The backoffice cannot create users itself (needs a `user-verified` token), that is why this lives in the CLI.
 
+### Allergens and additives (`src/FoodLabel/`, `src/Service/FoodLabelInstaller.php`)
+
+`FoodLabelCatalogue` is the fixed list (key → code, name) of the 14 LMIV allergens (cereals and nuts by name) and the 12 additives, identical to `../backoffice/shared/utils/labels.ts` — change both together. `FoodLabelInstaller` upserts the property groups `Allergene` and `Zusatzstoffe` on install/update: found by fixed id, else adopted by name (the backoffice may have created them first), options matched by name keep their id and only get `position` and the custom field `shopbite_code`. Never removed on uninstall (products reference the options). Product custom field `shopbite_allergens_checked` = the dish's lists are complete; the storefront must not show "no allergens" without it.
+
 ### Administration (`src/Resources/app/administration/`)
 
 Plain Shopware admin modules (`Shopware.Module.register`, list + detail pages, de-DE/en-GB snippets), all nested under the `shopbite.main.index` navigation parent. The compiled bundle in `src/Resources/public/administration/` **is committed**; after changing admin JS, rebuild it with Shopware's admin build (`make build-administration` / `make watch-admin` in `../shopware/`, or `bin/build-administration.sh` inside this repo's `web` container) and commit the output.
