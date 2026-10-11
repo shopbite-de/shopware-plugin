@@ -21,6 +21,9 @@ final readonly class CustomFieldsInstaller
     public const string SHOPBITE_RECEIPT_PRINT_TYPE = 'shopbite_receipt_print_type';
     public const string SHOPBITE_CART_UPSELL = 'shopbite_cart_upsell';
     public const string SHOPBITE_CATEGORY_ICON = 'shopbite_category_icon';
+    private const string USER_CUSTOM_FIELDSET_NAME = 'shopbite_user_set';
+    /** Sales channels (branches) a backoffice user works for; empty = all (management only). */
+    public const string SHOPBITE_SALES_CHANNEL_IDS = 'shopbite_sales_channel_ids';
 
     private const array CUSTOM_FIELDSET = [
         'id' => '0198be8b24a0722cac46b07e3a80f49b',
@@ -132,6 +135,41 @@ final readonly class CustomFieldsInstaller
         ],
     ];
 
+    private const array USER_CUSTOM_FIELDSET = [
+        'id' => '7883d489fd114d80b1cc67a32ff64665',
+        'name' => self::USER_CUSTOM_FIELDSET_NAME,
+        'config' => [
+            'label' => [
+                'en-GB' => 'ShopBite Backoffice',
+                'de-DE' => 'ShopBite Backoffice',
+                Defaults::LANGUAGE_SYSTEM => 'ShopBite Backoffice',
+            ],
+        ],
+        'customFields' => [
+            [
+                'id' => 'c768f0f89aae4ac9955deaf4e4f739a9',
+                'name' => self::SHOPBITE_SALES_CHANNEL_IDS,
+                'type' => CustomFieldTypes::SELECT,
+                'config' => [
+                    'label' => [
+                        'en-GB' => 'Branches (sales channels)',
+                        'de-DE' => 'Filialen (Verkaufskanäle)',
+                        Defaults::LANGUAGE_SYSTEM => 'Branches (sales channels)',
+                    ],
+                    'helpText' => [
+                        'en-GB' => 'The backoffice only shows these sales channels to the user. Staff without a branch cannot log in; management without a branch sees all.',
+                        'de-DE' => 'Das Backoffice zeigt dem Benutzer nur diese Verkaufskanäle. Personal ohne Filiale kommt nicht hinein, Management ohne Filiale sieht alle.',
+                        Defaults::LANGUAGE_SYSTEM => 'The backoffice only shows these sales channels to the user. Staff without a branch cannot log in; management without a branch sees all.',
+                    ],
+                    'componentName' => 'sw-entity-multi-id-select',
+                    'entity' => 'sales_channel',
+                    'customFieldType' => 'entity',
+                    'customFieldPosition' => 1,
+                ],
+            ],
+        ],
+    ];
+
     /**
      * @param EntityRepository<CustomFieldSetCollection>         $customFieldSetRepository
      * @param EntityRepository<CustomFieldSetRelationCollection> $customFieldSetRelationRepository
@@ -147,6 +185,7 @@ final readonly class CustomFieldsInstaller
         $this->customFieldSetRepository->upsert([
             self::CUSTOM_FIELDSET,
             self::CATEGORY_CUSTOM_FIELDSET,
+            self::USER_CUSTOM_FIELDSET,
         ], $context);
     }
 
@@ -164,6 +203,7 @@ final readonly class CustomFieldsInstaller
         $this->customFieldSetRepository->delete([
             ['id' => self::CUSTOM_FIELDSET['id']],
             ['id' => self::CATEGORY_CUSTOM_FIELDSET['id']],
+            ['id' => self::USER_CUSTOM_FIELDSET['id']],
         ], $context);
     }
 
@@ -173,6 +213,7 @@ final readonly class CustomFieldsInstaller
         $wanted = [
             self::CUSTOM_FIELDSET_NAME => ['id' => '0198be99dd757130a9a99df0f878bf05', 'entityName' => 'product'],
             self::CATEGORY_CUSTOM_FIELDSET_NAME => ['id' => '0195191263d9703ca63857321a007137', 'entityName' => 'category'],
+            self::USER_CUSTOM_FIELDSET_NAME => ['id' => '3a7f247ccc574eaba89c03083ecf6ec6', 'entityName' => 'user'],
         ];
 
         $upserts = [];
@@ -216,6 +257,7 @@ final readonly class CustomFieldsInstaller
         $criteria->addFilter(new MultiFilter(MultiFilter::CONNECTION_OR, [
             new EqualsFilter('name', self::CUSTOM_FIELDSET_NAME),
             new EqualsFilter('name', self::CATEGORY_CUSTOM_FIELDSET_NAME),
+            new EqualsFilter('name', self::USER_CUSTOM_FIELDSET_NAME),
         ]));
 
         $entities = $this->customFieldSetRepository->search($criteria, $context)->getEntities();

@@ -37,22 +37,30 @@ class CustomFieldsInstallerTest extends TestCase
         $this->customFieldSetRepository->expects($this->once())
             ->method('upsert')
             ->with($this->callback(function (array $data) {
-                if (count($data) !== 2) {
+                if (count($data) !== 3) {
                     return false;
                 }
 
                 $productSet = null;
                 $categorySet = null;
+                $userSet = null;
 
                 foreach ($data as $set) {
                     if ($set['name'] === 'shopbite_product_set') {
                         $productSet = $set;
                     } elseif ($set['name'] === 'shopbite_category_set') {
                         $categorySet = $set;
+                    } elseif ($set['name'] === 'shopbite_user_set') {
+                        $userSet = $set;
                     }
                 }
 
-                if (!$productSet || !$categorySet) {
+                if (!$productSet || !$categorySet || !$userSet) {
+                    return false;
+                }
+                // backoffice branch binding: list of sales channel ids
+                if ($userSet['customFields'][0]['name'] !== 'shopbite_sales_channel_ids'
+                    || $userSet['customFields'][0]['config']['entity'] !== 'sales_channel') {
                     return false;
                 }
 
@@ -113,6 +121,7 @@ class CustomFieldsInstallerTest extends TestCase
             ->with([
                 ['id' => '0198be8b24a0722cac46b07e3a80f49b'],
                 ['id' => '0195191263d9703ca6385732168d80f8'],
+                ['id' => '7883d489fd114d80b1cc67a32ff64665'],
             ], $context);
         $this->customFieldSetRelationRepository->expects($this->never())
             ->method('delete');
