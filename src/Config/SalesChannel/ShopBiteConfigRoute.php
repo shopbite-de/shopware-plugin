@@ -8,6 +8,7 @@ use function Psl\Type\bool;
 use function Psl\Type\positive_int;
 use function Psl\Type\string;
 
+use ShopBite\Settings\RestaurantSettings;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
@@ -53,6 +54,10 @@ final readonly class ShopBiteConfigRoute
             $this->getOptionalString('addressCity', $salesChannelId),
             $this->getOptionalString('telephone', $salesChannelId),
             $this->getOptionalString('googleBusinessProfileUrl', $salesChannelId),
+            RestaurantSettings::menuCategoryId(
+                $this->systemConfigService->get(RestaurantSettings::MENU_CATEGORY, $salesChannelId),
+                $context->getSalesChannel()->getNavigationCategoryId(),
+            ),
         ));
     }
 

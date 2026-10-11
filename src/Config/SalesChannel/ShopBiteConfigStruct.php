@@ -17,6 +17,7 @@ final class ShopBiteConfigStruct extends Struct
         public readonly ?string $addressCity = null,
         public readonly ?string $telephone = null,
         public readonly ?string $googleBusinessProfileUrl = null,
+        public readonly ?string $menuCategoryId = null,
     ) {
     }
 }
