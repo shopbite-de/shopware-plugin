@@ -357,9 +357,14 @@
             "format": "uri",
             "nullable": true,
             "description": "Link to the shop's Google Business Profile, null if not configured"
+          },
+          "menuCategoryId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{32}$",
+            "description": "Root category of the menu: the configured menu category, else the navigation category of the sales channel"
           }
         },
-        "required": ["isCheckoutEnabled", "deliveryTime"]
+        "required": ["isCheckoutEnabled", "deliveryTime", "menuCategoryId"]
       },
       "BusinessHour": {
         "type": "object",

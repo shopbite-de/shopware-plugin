@@ -30,6 +30,20 @@
     </card>
 
     <card>
+        <title>Menu</title>
+        <title lang="de-DE">Speisekarte</title>
+
+        <component name="sw-entity-single-select">
+            <name>menuCategoryId</name>
+            <entity>category</entity>
+            <label>Menu category</label>
+            <label lang="de-DE">Kategorie der Speisekarte</label>
+            <helpText>The category whose sub-categories are the menu sections, set per sales channel. The storefront and the backoffice read it. Empty = the navigation category of the sales channel.</helpText>
+            <helpText lang="de-DE">Die Kategorie, deren Unterkategorien die Abschnitte der Speisekarte sind, pro Verkaufskanal. Storefront und Backoffice lesen sie. Leer = Navigationskategorie des Verkaufskanals.</helpText>
+        </component>
+    </card>
+
+    <card>
         <title>Contact &amp; location</title>
         <title lang="de-DE">Kontakt &amp; Standort</title>
 
