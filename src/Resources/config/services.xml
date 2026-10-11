@@ -50,6 +50,16 @@
             <argument key="$aclRoleRepository" type="service" id="acl_role.repository"/>
         </service>
 
+        <!-- SPIKE plugin#38 -->
+        <service id="ShopBite\Passkey\PasskeyGrantSubscriber">
+            <argument type="service" id="shopware.api.authorization_server"/>
+            <argument type="service" id="Shopware\Core\Framework\Api\OAuth\UserRepository"/>
+            <argument type="service" id="Shopware\Core\Framework\Api\OAuth\RefreshTokenRepository"/>
+            <argument>%shopware.api.access_token_ttl%</argument>
+            <argument>%shopware.api.refresh_token_ttl%</argument>
+            <tag name="kernel.event_subscriber"/>
+        </service>
+
         <!-- Allergens and additives (property groups with codes) -->
         <service id="ShopBite\Service\FoodLabelInstaller">
             <argument key="$propertyGroupRepository" type="service" id="property_group.repository"/>
