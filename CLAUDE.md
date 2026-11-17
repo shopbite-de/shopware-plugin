@@ -102,7 +102,7 @@ Custom field sets are defined as constant arrays with **hard-coded UUIDs** and u
 
 ### Order printer ACL role (`src/Service/OrderPrinterRoleInstaller.php`)
 
-Creates/updates the `acl_role` `order-printer` (looked up by name) on install and update, and deletes it on uninstall without `keepUserData()`. `PRIVILEGES` must stay sorted and match exactly what `../order-printer/src/Infra/Shopware/Api/` requests: every association or filter path in a search needs `<entity>:read` (`AclCriteriaValidator`). If you change it, update the tables in the README, `../order-printer/docs/dokploy-deployment.md` and the homepage docs.
+Creates/updates the `acl_role` `order-printer` (looked up by name) on install and update, and deletes it on uninstall without `keepUserData()`. `PRIVILEGES` must stay sorted and match exactly what `../order-printer/src/Infra/Shopware/Api/` requests: every association or filter path in a search needs `<entity>:read` (`AclCriteriaValidator`). If you change it, update the tables in the README, `../order-printer/docs/dokploy-deployment.md` and the docs on shopbite.de.
 
 ### Backoffice staff (`src/Service/StaffRoleInstaller.php`, `src/Staff/`)
 
@@ -132,12 +132,10 @@ Plain Shopware admin modules (`Shopware.Module.register`, list + detail pages, d
 
 ## Documentation (mandatory with every change)
 
-The official user-facing docs live in the `homepage/` service and exist in two languages. **Every change here must be reflected in both**:
+The official user-facing docs on shopbite.de exist in German and English. **Every change here that affects them needs a docs update in both languages**; name it in your report when you cannot make it yourself:
 
-- `../homepage/content/{de,en}/docs/7.shopware/` — this plugin: installation, plugin configuration, business hours, holidays, checkout.
-- `../homepage/content/{de,en}/docs/9.receipt-printer/` — the order/receipt printer. Update it whenever a change here affects what the printer receives (e.g. the `shopbite_receipt_print_type` custom field, line item payload, container line items).
-
-Always bump `dateModified` (and `sitemap.lastmod`) in the frontmatter of every page you touch.
+- https://shopbite.de/docs/shopware — this plugin: installation, plugin configuration, business hours, holidays, checkout.
+- https://shopbite.de/docs/receipt-printer — the order/receipt printer. Update it whenever a change here affects what the printer receives (e.g. the `shopbite_receipt_print_type` custom field, line item payload, container line items).
 
 ## Code conventions
 
