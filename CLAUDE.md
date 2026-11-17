@@ -147,4 +147,6 @@ The official user-facing docs on shopbite.de exist in German and English. **Ever
 
 ## Tests
 
+Work test-first (red, green, refactor): for a bug, first write a test that reproduces it and fails on the current code, then fix it; for new behaviour, write the tests that describe it before the implementation. The test lands in the same commit as the change it covers. Changes with nothing to assert (content, copy, styling, dependency bumps) skip this; say so in the commit message.
+
 `phpunit.xml` sets `KERNEL_CLASS` but nothing boots the kernel; all tests are isolated unit tests that mock `EntityRepository`, `SalesChannelContext`, and `EntitySearchResult` and assert on the `Criteria` passed to `search()`. Follow that style — no database fixtures. Tests use PHPUnit 12 attributes (`#[CoversClass]`) and run in random order.
