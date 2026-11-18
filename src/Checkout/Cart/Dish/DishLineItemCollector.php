@@ -5,25 +5,32 @@ declare(strict_types=1);
 namespace ShopBite\Checkout\Cart\Dish;
 
 use ShopBite\Checkout\Cart\LineItemFactoryHandler\ContainerLineItemFactory;
-use ShopBite\Service\CustomFieldsInstaller;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\CartBehavior;
 use Shopware\Core\Checkout\Cart\CartDataCollectorInterface;
 use Shopware\Core\Checkout\Cart\LineItem\CartDataCollection;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
+use Shopware\Core\Content\Product\ProductCollection;
 use Shopware\Core\Content\Product\SalesChannel\SalesChannelProductEntity;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
+use Shopware\Core\System\SalesChannel\Entity\SalesChannelRepository;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
 /**
  * Sets label and payload of dish line items from the products, so the order
  * and the receipt show what the cart was calculated with.
  *
- * Runs after Shopware's product collector (priority 5000), which has loaded
- * the products (with their properties) and set the labels of the children.
+ * Runs after Shopware's product collector (priority 5000), which has set the
+ * labels of the children. The main products (with their properties) are taken
+ * from its data or, when it did not load them in this calculation (e.g. on an
+ * update of an already calculated cart), loaded here.
+ *
  * Label: `<product> +<extra> ... -<ingredient> ...`, the format the receipt
- * printer expects. Ingredients to leave out are kept only if they are options
- * of the product's property group "Hauptzutaten" (the ones the storefront
- * offers to deselect).
+ * printer prints. Ingredients to leave out come from `payload.without`, or,
+ * without that key (storefront request, carts stored before), from the label;
+ * only options of the product's property group "Hauptzutaten" count (the ones
+ * the storefront offers to deselect). Payload: `productNumber` and `without`.
+ * A dish gets no receipt print type, so the printer prints its label.
  *
  * @psalm-api
  */
@@ -34,9 +41,22 @@ final readonly class DishLineItemCollector implements CartDataCollectorInterface
     /** Key of Shopware's ProductCartProcessor in the cart data collection. */
     private const string PRODUCT_DATA_KEY = 'product-';
 
+    /** Products loaded here. */
+    private const string DISH_PRODUCT_DATA_KEY = 'shopbite-dish-product-';
+
+    /**
+     * @param SalesChannelRepository<ProductCollection> $productRepository
+     *
+     * @psalm-suppress PossiblyUnusedMethod Constructed by the container
+     */
+    public function __construct(private SalesChannelRepository $productRepository)
+    {
+    }
+
     #[\Override]
     public function collect(CartDataCollection $data, Cart $original, SalesChannelContext $context, CartBehavior $behavior): void
     {
+        $dishes = [];
         foreach ($original->getLineItems()->filterType(ContainerLineItemFactory::TYPE) as $dish) {
             $main = $this->mainChild($dish);
             if ($main === null) {
@@ -45,14 +65,44 @@ final readonly class DishLineItemCollector implements CartDataCollectorInterface
 
                 continue;
             }
-
-            $product = $data->get(self::PRODUCT_DATA_KEY . $main->getReferencedId());
-            if (!$product instanceof SalesChannelProductEntity) {
-                continue;
-            }
-
-            $this->enrich($dish, $main, $product);
+            $dishes[] = [$dish, $main, (string) $main->getReferencedId()];
         }
+        if ($dishes === []) {
+            return;
+        }
+
+        $missing = [];
+        foreach ($dishes as [, , $productId]) {
+            if ($this->product($data, $productId) === null) {
+                $missing[$productId] = $productId;
+            }
+        }
+        if ($missing !== []) {
+            $criteria = new Criteria(array_values($missing));
+            $criteria->addAssociation('properties.group');
+            foreach ($this->productRepository->search($criteria, $context)->getEntities() as $product) {
+                $data->set(self::DISH_PRODUCT_DATA_KEY . $product->getUniqueIdentifier(), $product);
+            }
+        }
+
+        foreach ($dishes as [$dish, $main, $productId]) {
+            $product = $this->product($data, $productId);
+            if ($product !== null) {
+                $this->enrich($dish, $main, $product);
+            }
+        }
+    }
+
+    private function product(CartDataCollection $data, string $productId): ?SalesChannelProductEntity
+    {
+        foreach ([self::PRODUCT_DATA_KEY, self::DISH_PRODUCT_DATA_KEY] as $prefix) {
+            $product = $data->get($prefix . $productId);
+            if ($product instanceof SalesChannelProductEntity) {
+                return $product;
+            }
+        }
+
+        return null;
     }
 
     private function mainChild(LineItem $dish): ?LineItem
@@ -75,37 +125,39 @@ final readonly class DishLineItemCollector implements CartDataCollectorInterface
 
     private function enrich(LineItem $dish, LineItem $main, SalesChannelProductEntity $product): void
     {
-        $requested = $dish->getPayload()[ContainerLineItemFactory::PAYLOAD_WITHOUT] ?? [];
-        $ingredients = $this->mainIngredients($product);
-        $without = array_values(array_filter(
-            \is_array($requested) ? $requested : [],
-            static fn (mixed $name): bool => \is_string($name) && isset($ingredients[$name]),
-        ));
-
-        $label = (string) $product->getTranslation('name');
+        $name = (string) $product->getTranslation('name');
+        $extras = [];
         foreach ($dish->getChildren() as $child) {
             $extra = $child->getLabel();
             if ($child !== $main && $extra !== null && $extra !== '') {
-                $label .= ' +' . $extra;
+                $extras[] = $extra;
             }
         }
-        foreach ($without as $name) {
-            $label .= ' -' . $name;
+        $ingredients = $this->mainIngredients($product);
+
+        $payload = $dish->getPayload();
+        $requested = \array_key_exists(ContainerLineItemFactory::PAYLOAD_WITHOUT, $payload)
+            ? $payload[ContainerLineItemFactory::PAYLOAD_WITHOUT]
+            : DishText::withoutFromLabel((string) $dish->getLabel(), [$name, (string) $main->getLabel()], $extras, array_keys($ingredients));
+        $without = array_values(array_unique(array_filter(
+            \is_array($requested) ? $requested : [],
+            static fn (mixed $ingredient): bool => \is_string($ingredient) && isset($ingredients[$ingredient]),
+        )));
+
+        $label = $name;
+        foreach ($extras as $extra) {
+            $label .= ' +' . $extra;
+        }
+        foreach ($without as $ingredient) {
+            $label .= ' -' . $ingredient;
         }
         $dish->setLabel(DishText::clean($label));
 
-        foreach (array_keys($dish->getPayload()) as $key) {
-            $dish->removePayloadValue($key);
+        foreach (array_keys($payload) as $key) {
+            $dish->removePayloadValue((string) $key);
         }
         $dish->setPayloadValue('productNumber', $product->getProductNumber());
         $dish->setPayloadValue(ContainerLineItemFactory::PAYLOAD_WITHOUT, $without);
-
-        $customFields = $product->getTranslation('customFields');
-        $customFields = \is_array($customFields) ? $customFields : ($product->getCustomFields() ?? []);
-        $printType = $customFields[CustomFieldsInstaller::SHOPBITE_RECEIPT_PRINT_TYPE] ?? null;
-        if (\is_string($printType) && $printType !== '') {
-            $dish->setPayloadValue(CustomFieldsInstaller::SHOPBITE_RECEIPT_PRINT_TYPE, $printType);
-        }
     }
 
     /**

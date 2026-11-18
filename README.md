@@ -14,7 +14,7 @@ The ShopBite plugin extends Shopware 6 with specialized features tailored for th
 - **Contact & Location**: Address, telephone and Google Business Profile link per sales channel, maintained in the plugin configuration and exposed via `/store-api/shopbite/config`.
 - **Wishlist for configured dishes**: Logged-in customers save a product together with deselected ingredients and extras (`/store-api/shopbite/wishlist`, `/add`, `/merge`, `DELETE /{id}`), scoped per customer and sales channel.
 - **Checkout Enhancements**:
-    - Dish line items (`type: container`): the product as first child, extras as further product children. The plugin validates the structure (product children with product ids, at most 30) and sets label, product number and receipt print type from the products; of the payload it takes only `without` (ingredients of the property group "Hauptzutaten" to leave out, at most 20 names of up to 100 characters).
+    - Dish line items (`type: container`): the product as first child, extras as further product children. The plugin validates the structure (product children with product ids, at most 30) and sets label and product number from the products; the ingredients to leave out come from `payload.without` (at most 20 names of up to 100 characters) or the `-<ingredient>` parts of the label, and only options of the product's property group "Hauptzutaten" are kept. Dishes carry no receipt print type, so the printer prints their label.
     - Receipt print type processing for specialized fulfillment workflows.
 - **Headless Optimized**: Designed from the ground up to work with the ShopBite Nuxt storefront and the Shopware Store API.
 

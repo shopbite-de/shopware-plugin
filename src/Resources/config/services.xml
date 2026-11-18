@@ -12,6 +12,7 @@
 
         <!-- Label and payload of dishes from the products, after Shopware's product collector (5000) -->
         <service id="ShopBite\Checkout\Cart\Dish\DishLineItemCollector">
+            <argument type="service" id="sales_channel.product.repository"/>
             <tag name="shopware.cart.collector" priority="4900"/>
         </service>
 
