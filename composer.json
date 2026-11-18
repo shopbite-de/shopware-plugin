@@ -38,10 +38,10 @@
         }
     },
     "require-dev": {
-        "phpunit/phpunit": "^13",
-        "friendsofphp/php-cs-fixer": "^3.92",
-        "vimeo/psalm": "^6.14",
-        "php-standard-library/psalm-plugin": "^2.3"
+        "phpunit/phpunit": "^13.4",
+        "friendsofphp/php-cs-fixer": "^3.95",
+        "vimeo/psalm": "^6.20",
+        "php-standard-library/psalm-plugin": "^2.4"
     },
     "conflict": {
         "phpdocumentor/reflection-docblock": ">=6.0"
