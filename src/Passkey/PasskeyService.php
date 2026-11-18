@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ShopBite\Passkey;
 
 use Psr\Cache\CacheItemPoolInterface;
+use Symfony\Component\Lock\Exception\ExceptionInterface as LockExceptionInterface;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Serializer\Encoder\JsonEncode;
 use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
@@ -42,6 +43,7 @@ final readonly class PasskeyService
 {
     private const int TTL = 300;
     private const string CACHE_PREFIX = 'shopbite_passkey_';
+    private const int CHALLENGE_BYTES = 32;
 
     private SerializerInterface $serializer;
 
@@ -69,7 +71,7 @@ final readonly class PasskeyService
             PublicKeyCredentialRpEntity::create('ShopBite Backoffice', $this->config->rpId()),
             // the user handle is the Shopware user id; the login maps it back
             PublicKeyCredentialUserEntity::create($user['username'], $userId, $user['name']),
-            random_bytes(32),
+            random_bytes(self::CHALLENGE_BYTES),
             [PublicKeyCredentialParameters::createPk(-7), PublicKeyCredentialParameters::createPk(-257)],
             AuthenticatorSelectionCriteria::create(
                 null,
@@ -121,7 +123,7 @@ final readonly class PasskeyService
     {
         $this->assertEnabled();
         $options = PublicKeyCredentialRequestOptions::create(
-            random_bytes(32),
+            random_bytes(self::CHALLENGE_BYTES),
             $this->config->rpId(),
             [],
             PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED,
@@ -150,7 +152,11 @@ final readonly class PasskeyService
         if (!$response instanceof AuthenticatorAssertionResponse) {
             throw $fail();
         }
-        $optionsJson = $this->take('login_' . self::toBase64Url($response->clientDataJSON->challenge)) ?? throw $fail();
+        $challenge = $response->clientDataJSON->challenge;
+        if (\strlen($challenge) !== self::CHALLENGE_BYTES) {
+            throw $fail();
+        }
+        $optionsJson = $this->take('login_' . self::toBase64Url($challenge)) ?? throw $fail();
         $stored = $this->store->findByCredentialId(self::toBase64Url($credential->rawId)) ?? throw $fail();
         $user = $this->store->user($stored['userId']);
         if ($user === null || !$user['active']) {
@@ -235,29 +241,40 @@ final readonly class PasskeyService
     }
 
     /**
-     * Reads and removes under a lock, so a challenge works once. A challenge another request
-     * is taking right now counts as gone.
+     * Reads and removes under a lock, so a challenge works once. Only a challenge that exists is
+     * locked (unknown ones would leave lock files behind) and checked again inside the lock. A
+     * challenge another request is taking right now, or a failing lock store, counts as gone.
      */
     private function take(string $key): ?string
     {
-        $lock = $this->locks->createLock(self::CACHE_PREFIX . $key, 30);
-        if (!$lock->acquire()) {
+        $cacheKey = self::CACHE_PREFIX . $key;
+        if (!$this->cache->hasItem($cacheKey)) {
             return null;
         }
 
         try {
-            $item = $this->cache->getItem(self::CACHE_PREFIX . $key);
-            if (!$item->isHit()) {
+            $lock = $this->locks->createLock($cacheKey, 30);
+            if (!$lock->acquire()) {
                 return null;
             }
-            if (!$this->cache->deleteItem(self::CACHE_PREFIX . $key)) {
+        } catch (LockExceptionInterface) {
+            return null;
+        }
+
+        try {
+            $item = $this->cache->getItem($cacheKey);
+            if (!$item->isHit() || !$this->cache->deleteItem($cacheKey)) {
                 return null;
             }
             $value = $item->get();
 
             return \is_string($value) ? $value : null;
         } finally {
-            $lock->release();
+            try {
+                $lock->release();
+            } catch (LockExceptionInterface) {
+                // expires on its own
+            }
         }
     }
 

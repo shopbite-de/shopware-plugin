@@ -15,7 +15,10 @@ use ShopBite\Passkey\PasskeyService;
 use ShopBite\Passkey\PasskeyStore;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Lock\Exception\LockStorageException;
+use Symfony\Component\Lock\Key;
 use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\PersistingStoreInterface;
 use Symfony\Component\Lock\Store\InMemoryStore;
 
 #[CoversClass(PasskeyService::class)]
@@ -146,24 +149,66 @@ class PasskeyServiceTest extends TestCase
         $concurrent = new LockFactory($this->locks)->createLock('shopbite_passkey_login_' . $options['challenge']);
         static::assertTrue($concurrent->acquire());
 
-        $credential = json_encode([
+        $credential = self::assertion($options['challenge']);
+        $this->connection->expects($this->never())->method('fetchAssociative');
+
+        $this->expectExceptionMessage('Passkey login failed.');
+        $this->service()->verifyLogin($credential);
+    }
+
+    public function testUnknownLoginChallengeTakesNoLock(): void
+    {
+        $locks = new CountingLockStore();
+        $service = new PasskeyService($this->store, $this->config('backoffice.example', 'https://backoffice.example'), $this->cache, new LockFactory($locks));
+
+        foreach ([PasskeyService::toBase64Url(random_bytes(32)), PasskeyService::toBase64Url(random_bytes(500)), 'eA'] as $challenge) {
+            try {
+                $service->verifyLogin(self::assertion($challenge));
+                static::fail('no exception');
+            } catch (PasskeyException $e) {
+                static::assertSame('Passkey login failed.', $e->getMessage());
+            }
+        }
+
+        static::assertSame(0, $locks->saved);
+    }
+
+    public function testLockStoreFailureIsTheUniformLoginError(): void
+    {
+        $options = $this->service()->loginOptions();
+        $locks = new CountingLockStore(fail: true);
+        $service = new PasskeyService($this->store, $this->config('backoffice.example', 'https://backoffice.example'), $this->cache, new LockFactory($locks));
+
+        $this->expectExceptionMessage('Passkey login failed.');
+        $service->verifyLogin(self::assertion($options['challenge']));
+    }
+
+    public function testLockStoreFailureDuringRegistrationIsAnExpiredRegistration(): void
+    {
+        $this->userExists();
+        $this->service()->registrationOptions(self::USER);
+        $service = new PasskeyService($this->store, $this->config('backoffice.example', 'https://backoffice.example'), $this->cache, new LockFactory(new CountingLockStore(fail: true)));
+
+        $this->expectExceptionMessage('expired');
+        $service->register(self::USER, 'not json', 'iPhone');
+    }
+
+    private static function assertion(string $challenge): string
+    {
+        return (string) json_encode([
             'id' => 'AQID',
             'rawId' => 'AQID',
             'type' => 'public-key',
             'response' => [
                 'clientDataJSON' => PasskeyService::toBase64Url((string) json_encode([
                     'type' => 'webauthn.get',
-                    'challenge' => $options['challenge'],
+                    'challenge' => $challenge,
                     'origin' => 'https://backoffice.example',
                 ])),
                 'authenticatorData' => PasskeyService::toBase64Url(str_repeat("\0", 37)),
                 'signature' => 'AQID',
             ],
         ]);
-        $this->connection->expects($this->never())->method('fetchAssociative');
-
-        $this->expectExceptionMessage('Passkey login failed.');
-        $this->service()->verifyLogin((string) $credential);
     }
 
     private function userExists(): void
@@ -187,5 +232,44 @@ class PasskeyServiceTest extends TestCase
         ]);
 
         return new PasskeyConfig($systemConfig);
+    }
+}
+
+/**
+ * Lock store that counts the locks taken and can fail like an unreachable lock backend.
+ */
+final class CountingLockStore implements PersistingStoreInterface
+{
+    public int $saved = 0;
+
+    private InMemoryStore $inner;
+
+    public function __construct(private readonly bool $fail = false)
+    {
+        $this->inner = new InMemoryStore();
+    }
+
+    public function save(Key $key): void
+    {
+        if ($this->fail) {
+            throw new LockStorageException('lock backend down');
+        }
+        ++$this->saved;
+        $this->inner->save($key);
+    }
+
+    public function delete(Key $key): void
+    {
+        $this->inner->delete($key);
+    }
+
+    public function exists(Key $key): bool
+    {
+        return $this->inner->exists($key);
+    }
+
+    public function putOffExpiration(Key $key, float $ttl): void
+    {
+        $this->inner->putOffExpiration($key, $ttl);
     }
 }

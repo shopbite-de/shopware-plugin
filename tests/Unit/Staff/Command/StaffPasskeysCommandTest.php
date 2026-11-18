@@ -80,6 +80,17 @@ class StaffPasskeysCommandTest extends TestCase
         static::assertStringContainsString('3', $tester->getDisplay());
     }
 
+    public function testRevokeAndRevokeAllTogetherAreRefused(): void
+    {
+        $this->userExists();
+        $this->connection->expects($this->never())->method('delete');
+        $this->connection->expects($this->never())->method('executeStatement');
+
+        $tester = $this->execute(['username' => 'chef', '--revoke' => self::PASSKEY, '--revoke-all' => true]);
+
+        static::assertSame(Command::INVALID, $tester->getStatusCode());
+    }
+
     public function testUnknownUserFails(): void
     {
         $this->connection->method('fetchOne')->willReturn(false);
