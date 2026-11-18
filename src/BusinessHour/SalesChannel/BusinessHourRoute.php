@@ -13,7 +13,7 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * @psalm-suppress UnusedClass
+ * @psalm-api
  */
 #[Route(defaults: ['_routeScope' => ['store-api']])]
 final readonly class BusinessHourRoute extends AbstractBusinessHourRoute

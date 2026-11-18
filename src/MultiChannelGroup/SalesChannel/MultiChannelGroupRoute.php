@@ -13,7 +13,7 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * @psalm-suppress UnusedClass
+ * @psalm-api
  */
 #[Route(defaults: ['_routeScope' => ['store-api']])]
 final readonly class MultiChannelGroupRoute extends AbstractMultiChannelGroupRoute
@@ -55,12 +55,6 @@ final readonly class MultiChannelGroupRoute extends AbstractMultiChannelGroupRou
 
         $result = $this->multiChannelGroupRepository->search($criteria, $context->getContext());
 
-        $multiChannelGroups = $result->getEntities();
-
-        if (!$multiChannelGroups instanceof MultiChannelGroupCollection) {
-            $multiChannelGroups = new MultiChannelGroupCollection($multiChannelGroups);
-        }
-
-        return new MultiChannelGroupRouteResponse(new MultiChannelGroupStruct($multiChannelGroups));
+        return new MultiChannelGroupRouteResponse(new MultiChannelGroupStruct($result->getEntities()));
     }
 }

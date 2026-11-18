@@ -20,7 +20,7 @@ use Symfony\Component\Routing\Attribute\Route;
  * (no ACL privilege needed); the login options are open, the login itself is the
  * shopbite_passkey grant on /api/oauth/token.
  *
- * @psalm-suppress UnusedClass Registered through routes.xml
+ * @psalm-api Registered through routes.xml
  */
 #[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => ['api']])]
 final readonly class PasskeyRoute

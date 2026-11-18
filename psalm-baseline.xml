@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<files psalm-version="6.17.1@ecdb39e1d470a661f423d08ec8d2db8bdc043ba7">
+<files psalm-version="7.10.0@2d8a48d1611508108eaa653ef599010da65eff3f">
   <file src="src/BusinessHour/BusinessHourEntity.php">
     <PossiblyUnusedMethod>
       <code><![CDATA[getClosingTime]]></code>

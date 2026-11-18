@@ -8,7 +8,7 @@ use Doctrine\DBAL\Connection;
 use Shopware\Core\Framework\Migration\MigrationStep;
 
 /**
- * @psalm-suppress UnusedClass registered by Shopware's migration collection
+ * @psalm-api registered by Shopware's migration collection
  */
 final class Migration1791417600CreateWishlistItemTable extends MigrationStep
 {

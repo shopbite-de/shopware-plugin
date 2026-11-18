@@ -23,7 +23,7 @@ use Shopware\Core\System\SalesChannel\SalesChannelDefinition;
  * A configured dish on a customer's wishlist: product (variant) plus deselected
  * ingredients and selected extras. Shopware's core wishlist only stores product ids.
  *
- * @psalm-suppress UnusedClass registered via services.xml
+ * @psalm-api registered via services.xml
  */
 final class WishlistItemDefinition extends EntityDefinition
 {
