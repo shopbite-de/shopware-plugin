@@ -16,8 +16,9 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
  * A dish: the product as first child, its extras as further product children.
  *
  * Only the structure comes from the request (children, quantity, the
- * ingredients to leave out). Label, product number and receipt print type are
- * set from the products by `DishLineItemCollector`.
+ * ingredients to leave out, explicitly or as "-ingredient" in the label). The
+ * label and the product number are set from the products by
+ * `DishLineItemCollector`.
  *
  * @psalm-api
  */
@@ -47,7 +48,6 @@ final readonly class ContainerLineItemFactory implements LineItemFactoryInterfac
 
         $lineItem->setRemovable(true);
         $lineItem->setStackable(true);
-        $lineItem->setPayloadValue(self::PAYLOAD_WITHOUT, []);
 
         $this->update($lineItem, $data, $context);
 
@@ -64,12 +64,17 @@ final readonly class ContainerLineItemFactory implements LineItemFactoryInterfac
             }
         }
 
-        // Of the payload only the ingredients to leave out are taken.
+        // The label is only a hint for the ingredients to leave out (the storefront writes them
+        // as "-ingredient" into it); of the payload only the explicit list is taken.
+        $label = $data['label'] ?? null;
+        if (\is_string($label)) {
+            $lineItem->setLabel(DishText::label($label));
+        }
         $payload = $data['payload'] ?? null;
         if (\is_array($payload) && \array_key_exists(self::PAYLOAD_WITHOUT, $payload)) {
             $lineItem->setPayloadValue(self::PAYLOAD_WITHOUT, DishText::withoutFromPayload($payload[self::PAYLOAD_WITHOUT]));
-        } elseif (isset($data['label']) && \is_string($data['label'])) {
-            $lineItem->setPayloadValue(self::PAYLOAD_WITHOUT, DishText::withoutFromLabel($data['label']));
+        } elseif (\is_string($label) && $lineItem->hasPayloadValue(self::PAYLOAD_WITHOUT)) {
+            $lineItem->removePayloadValue(self::PAYLOAD_WITHOUT);
         }
 
         if (\array_key_exists('children', $data)) {

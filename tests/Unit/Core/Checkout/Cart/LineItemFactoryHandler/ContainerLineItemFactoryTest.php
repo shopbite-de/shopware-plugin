@@ -75,11 +75,13 @@ class ContainerLineItemFactoryTest extends TestCase
         $this->assertSame(3, $lineItem->getChildren()->get(self::PIZZA_ID)?->getQuantity());
     }
 
-    public function testLabelIsNotTakenFromTheRequest(): void
+    public function testLabelIsKeptOnlyAsCleanedHint(): void
     {
-        $lineItem = $this->factory->create($this->storefrontRequest(label: 'Free pizza'), $this->context);
+        // DishLineItemCollector replaces it; until then it carries the storefront's "-ingredient" parts.
+        $lineItem = $this->factory->create($this->storefrontRequest(label: "Pizza\u{202E} +Salami\n -Käse"), $this->context);
 
-        $this->assertNull($lineItem->getLabel());
+        $this->assertSame('Pizza +Salami -Käse', $lineItem->getLabel());
+        $this->assertSame([], $lineItem->getPayload());
     }
 
     public function testPayloadKeepsOnlyTheIngredientsToLeaveOut(): void
@@ -97,44 +99,21 @@ class ContainerLineItemFactoryTest extends TestCase
         $this->assertSame(['without' => ['Zwiebeln']], $lineItem->getPayload());
     }
 
-    public function testIngredientsToLeaveOutAreReadFromTheStorefrontLabel(): void
-    {
-        $lineItem = $this->factory->create(
-            $this->storefrontRequest(label: 'Pizza Margherita +Salami -Zwiebeln -Rote Paprika'),
-            $this->context,
-        );
-
-        $this->assertSame(['without' => ['Zwiebeln', 'Rote Paprika']], $lineItem->getPayload());
-    }
-
-    public function testLabelWithoutRemovedIngredientsGivesAnEmptyList(): void
-    {
-        $lineItem = $this->factory->create($this->storefrontRequest(label: 'Pizza +Salami'), $this->context);
-
-        $this->assertSame(['without' => []], $lineItem->getPayload());
-    }
-
     public function testIngredientTextIsCleanedAndDeduplicated(): void
     {
         $data = $this->storefrontRequest();
-        $data['payload'] = ['without' => [" Zwie\nbeln\t", 'Zwiebeln', "\x07", '']];
+        $data['payload'] = ['without' => [" Zwie\nbeln\t", "Zwie\u{202E}beln\u{2028}", "Zwie\u{200B}beln", 'Zwiebeln', "\x07", '']];
 
         $lineItem = $this->factory->create($data, $this->context);
 
         $this->assertSame(['without' => ['Zwiebeln']], $lineItem->getPayload());
     }
 
-    public function testIngredientsFromTheLabelAreCapped(): void
+    public function testLabelHintIsCapped(): void
     {
-        $label = 'Pizza -' . str_repeat('x', 101)
-            . implode('', array_map(static fn (int $i): string => ' -Zutat' . $i, range(1, 25)));
+        $lineItem = $this->factory->create($this->storefrontRequest(label: str_repeat('x', 2000)), $this->context);
 
-        $lineItem = $this->factory->create($this->storefrontRequest(label: $label), $this->context);
-
-        $without = $lineItem->getPayloadValue('without');
-        $this->assertIsArray($without);
-        $this->assertCount(20, $without);
-        $this->assertSame('Zutat1', $without[0]);
+        $this->assertSame(DishText::MAX_LABEL_LENGTH, mb_strlen((string) $lineItem->getLabel()));
     }
 
     /**
@@ -237,8 +216,20 @@ class ContainerLineItemFactoryTest extends TestCase
             'payload' => ['productNumber' => 'SW-FAKE', 'without' => ['Zwiebeln']],
         ], $this->context);
 
-        $this->assertNull($lineItem->getLabel());
+        $this->assertSame('Fake', $lineItem->getLabel());
         $this->assertSame(['without' => ['Zwiebeln']], $lineItem->getPayload());
+    }
+
+    public function testLabelOnlyUpdateDropsTheOldIngredientList(): void
+    {
+        $lineItem = $this->factory->create($this->storefrontRequest(), $this->context);
+        $lineItem->setPayloadValue('without', ['Zwiebeln']);
+
+        $this->factory->update($lineItem, ['label' => 'Pizza Margherita -Käse'], $this->context);
+
+        // the collector reads the new label instead of the old list
+        $this->assertSame('Pizza Margherita -Käse', $lineItem->getLabel());
+        $this->assertArrayNotHasKey('without', $lineItem->getPayload());
     }
 
     public function testUpdateValidatesNewChildren(): void
