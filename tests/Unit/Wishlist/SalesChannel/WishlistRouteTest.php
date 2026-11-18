@@ -14,6 +14,7 @@ use ShopBite\Wishlist\SalesChannel\WishlistStruct;
 use ShopBite\Wishlist\WishlistConfiguration;
 use ShopBite\Wishlist\WishlistException;
 use ShopBite\Wishlist\WishlistItemCollection;
+use ShopBite\Wishlist\WishlistItemDefinition;
 use ShopBite\Wishlist\WishlistItemEntity;
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Content\Product\ProductCollection;
@@ -22,6 +23,7 @@ use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenContainerEvent;
+use Shopware\Core\Framework\DataAbstractionLayer\FieldVisibility;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
@@ -361,7 +363,7 @@ class WishlistRouteTest extends TestCase
      */
     private function addRow(string $id, string $customerId, string $salesChannelId, string $productId, string $createdAt, array $without = [], array $extras = []): void
     {
-        $entity = new WishlistItemEntity();
+        $entity = self::newEntity();
         $entity->assign([
             'id' => $id,
             'customerId' => $customerId,
@@ -402,6 +404,17 @@ class WishlistRouteTest extends TestCase
         return $rows;
     }
 
+    /**
+     * The DAL sets the entity name on hydration; EntitySearchResult asserts it matches.
+     */
+    private static function newEntity(): WishlistItemEntity
+    {
+        $entity = new WishlistItemEntity();
+        $entity->internalSetEntityData(WishlistItemDefinition::ENTITY_NAME, new FieldVisibility([]));
+
+        return $entity;
+    }
+
     private function createWishlistRepository(): EntityRepository
     {
         $repository = $this->createStub(EntityRepository::class);
@@ -422,7 +435,7 @@ class WishlistRouteTest extends TestCase
             /** @var list<array<string, mixed>> $payloads */
             $this->creates[] = $payloads;
             foreach ($payloads as $payload) {
-                $entity = new WishlistItemEntity();
+                $entity = self::newEntity();
                 $entity->assign($payload);
                 $this->rows[(string) $payload['id']] = $entity;
             }
@@ -450,6 +463,7 @@ class WishlistRouteTest extends TestCase
                     continue;
                 }
                 $product = new SalesChannelProductEntity();
+                $product->internalSetEntityData('product', new FieldVisibility([]));
                 $product->setId((string) $id);
                 $product->setVersionId(Defaults::LIVE_VERSION);
                 $product->setProductNumber('P-' . $id);
