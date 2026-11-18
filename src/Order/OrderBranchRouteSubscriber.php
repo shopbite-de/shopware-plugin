@@ -6,6 +6,7 @@ namespace ShopBite\Order;
 
 use ShopBite\Staff\BranchBinding;
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\Routing\KernelListenerPriorities;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\PlatformRequest;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -39,7 +40,9 @@ final readonly class OrderBranchRouteSubscriber implements EventSubscriberInterf
     #[\Override]
     public static function getSubscribedEvents(): array
     {
-        return [KernelEvents::CONTROLLER => 'onController'];
+        // after ContextResolverListener (-10), which sets the request's context, and after the
+        // route scope check (-20)
+        return [KernelEvents::CONTROLLER => ['onController', KernelListenerPriorities::KERNEL_CONTROLLER_EVENT_SCOPE_VALIDATE_POST]];
     }
 
     public function onController(ControllerEvent $event): void

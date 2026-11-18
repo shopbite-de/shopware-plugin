@@ -46,6 +46,12 @@ class OrderPathGuardTest extends TestCase
 
             return $criteria;
         })(), 'orders'];
+        yield 'filter through extensions' => ['sales_channel', static fn (): Criteria => new Criteria()->addFilter(new EqualsFilter('extensions.orders.orderNumber', 'x')), 'extensions.orders.orderNumber'];
+        yield 'filter with prefix through extensions' => ['sales_channel', static fn (): Criteria => new Criteria()->addFilter(new EqualsFilter('sales_channel.extensions.orders.id', 'x')), 'sales_channel.extensions.orders.id'];
+        yield 'sorting through extensions' => ['product', static fn (): Criteria => new Criteria()->addSorting(new FieldSorting('extensions.orderLineItems.quantity')), 'extensions.orderLineItems.quantity'];
+        yield 'aggregation through extensions' => ['sales_channel', static fn (): Criteria => new Criteria()->addAggregation(new SumAggregation('sum', 'sales_channel.extensions.orders.amountTotal')), 'sales_channel.extensions.orders.amountTotal'];
+        yield 'extensions in the middle' => ['order', static fn (): Criteria => new Criteria()->addFilter(new EqualsFilter('salesChannel.extensions.orders.id', 'x')), 'salesChannel.extensions.orders.id'];
+        yield 'association below extensions (Criteria drops the segment)' => ['sales_channel', static fn (): Criteria => new Criteria()->addAssociation('extensions.orders'), 'orders'];
         yield 'order filter through its sales channel' => ['order', static fn (): Criteria => new Criteria()->addFilter(new EqualsFilter('salesChannel.orders.id', 'x')), 'salesChannel.orders.id'];
     }
 
