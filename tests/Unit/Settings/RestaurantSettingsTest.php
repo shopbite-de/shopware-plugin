@@ -12,11 +12,15 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use ShopBite\Settings\Api\SettingsRoute;
 use ShopBite\Settings\RestaurantSettings;
+use ShopBite\Staff\BranchBinding;
+use Shopware\Core\Framework\Api\Context\AdminApiSource;
+use Shopware\Core\Framework\Context;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Symfony\Component\HttpFoundation\Request;
 
 #[CoversClass(RestaurantSettings::class)]
 #[CoversClass(SettingsRoute::class)]
+#[CoversClass(BranchBinding::class)]
 #[AllowMockObjectsWithoutExpectations]
 class RestaurantSettingsTest extends TestCase
 {
@@ -25,6 +29,10 @@ class RestaurantSettingsTest extends TestCase
     private const string NAVIGATION = '211cf9b2d1725130a517bbadf753a43c';
 
     private const string MENU = '018dadb399837af3aa669c8fff4f4d6c';
+
+    private const string OTHER_CHANNEL = '0190000000007000800000000000b002';
+
+    private const string USER = '0190000000007000800000000000a001';
 
     private SystemConfigService&MockObject $systemConfig;
 
@@ -36,7 +44,7 @@ class RestaurantSettingsTest extends TestCase
     {
         $this->systemConfig = $this->createMock(SystemConfigService::class);
         $this->connection = $this->createMock(Connection::class);
-        $this->route = new SettingsRoute(new RestaurantSettings($this->systemConfig), $this->connection);
+        $this->route = new SettingsRoute(new RestaurantSettings($this->systemConfig), $this->connection, new BranchBinding($this->connection));
     }
 
     public function testReadsTheChannelValuesWithFallback(): void
@@ -48,7 +56,7 @@ class RestaurantSettingsTest extends TestCase
             [RestaurantSettings::MENU_CATEGORY, self::CHANNEL, self::MENU],
         ]);
 
-        $response = $this->route->read(self::CHANNEL);
+        $response = $this->route->read(self::CHANNEL, $this->admin());
 
         static::assertSame(
             ['orderingOpen' => false, 'deliveryMinutes' => 45, 'menuCategoryId' => self::MENU],
@@ -96,7 +104,7 @@ class RestaurantSettingsTest extends TestCase
         $this->channelExists(true);
         $this->systemConfig->method('get')->willReturn(null);
 
-        $body = json_decode((string) $this->route->list()->getContent(), true);
+        $body = json_decode((string) $this->route->list($this->admin())->getContent(), true);
 
         static::assertSame(['channels' => [self::CHANNEL => ['orderingOpen' => true, 'deliveryMinutes' => null, 'menuCategoryId' => self::NAVIGATION]]], $body);
     }
@@ -116,7 +124,7 @@ class RestaurantSettingsTest extends TestCase
             ->method('set')
             ->with(RestaurantSettings::DELIVERY_MINUTES, 60, self::CHANNEL);
 
-        $response = $this->route->update(self::CHANNEL, new Request(request: ['deliveryMinutes' => 60]));
+        $response = $this->route->update(self::CHANNEL, new Request(request: ['deliveryMinutes' => 60]), $this->admin());
 
         static::assertSame(200, $response->getStatusCode());
     }
@@ -126,8 +134,8 @@ class RestaurantSettingsTest extends TestCase
         $this->channelExists(false);
         $this->systemConfig->expects($this->never())->method('set');
 
-        static::assertSame(404, $this->route->update(self::CHANNEL, new Request(request: ['orderingOpen' => true]))->getStatusCode());
-        static::assertSame(404, $this->route->read(self::CHANNEL)->getStatusCode());
+        static::assertSame(404, $this->route->update(self::CHANNEL, new Request(request: ['orderingOpen' => true]), $this->admin())->getStatusCode());
+        static::assertSame(404, $this->route->read(self::CHANNEL, $this->admin())->getStatusCode());
     }
 
     /**
@@ -139,7 +147,7 @@ class RestaurantSettingsTest extends TestCase
         $this->channelExists(true);
         $this->systemConfig->expects($this->never())->method('set');
 
-        static::assertSame(400, $this->route->update(self::CHANNEL, new Request(request: $body))->getStatusCode());
+        static::assertSame(400, $this->route->update(self::CHANNEL, new Request(request: $body), $this->admin())->getStatusCode());
     }
 
     /**
@@ -154,6 +162,56 @@ class RestaurantSettingsTest extends TestCase
         yield 'delivery time zero' => [['deliveryMinutes' => 0]];
         yield 'delivery time too long' => [['deliveryMinutes' => 1441]];
         yield 'delivery time as float' => [['deliveryMinutes' => 30.5]];
+    }
+
+    public function testBoundUserReadsAndWritesOnlyTheirBranches(): void
+    {
+        $this->connection->method('fetchAllAssociative')->willReturnCallback(
+            fn (string $sql, array $params = []): array => $params === []
+                ? [['id' => self::CHANNEL, 'navigation' => self::NAVIGATION], ['id' => self::OTHER_CHANNEL, 'navigation' => self::NAVIGATION]]
+                : [['id' => strtolower(bin2hex((string) $params['id'])), 'navigation' => self::NAVIGATION]],
+        );
+        $this->connection->method('fetchOne')->willReturn(json_encode(['shopbite_sales_channel_ids' => [self::CHANNEL]]));
+        $this->systemConfig->method('get')->willReturn(null);
+        $this->systemConfig->expects($this->once())->method('set')->with(RestaurantSettings::ORDERING_OPEN, false, self::CHANNEL);
+
+        $context = new Context(new AdminApiSource(self::USER));
+
+        static::assertSame(403, $this->route->read(self::OTHER_CHANNEL, $context)->getStatusCode());
+        static::assertSame(403, $this->route->update(self::OTHER_CHANNEL, new Request(request: ['orderingOpen' => false]), $context)->getStatusCode());
+        static::assertSame(200, $this->route->read(self::CHANNEL, $context)->getStatusCode());
+        static::assertSame(200, $this->route->update(self::CHANNEL, new Request(request: ['orderingOpen' => false]), $context)->getStatusCode());
+
+        $body = json_decode((string) $this->route->list($context)->getContent(), true);
+        static::assertIsArray($body);
+        static::assertSame([self::CHANNEL], array_keys($body['channels']));
+    }
+
+    public function testAdminAndUnboundUsersSeeAllBranches(): void
+    {
+        $this->connection->method('fetchAllAssociative')->willReturn([
+            ['id' => self::CHANNEL, 'navigation' => self::NAVIGATION],
+            ['id' => self::OTHER_CHANNEL, 'navigation' => self::NAVIGATION],
+        ]);
+        $this->connection->method('fetchOne')->willReturn(json_encode(['shopbite_sales_channel_ids' => []]));
+        $this->systemConfig->method('get')->willReturn(null);
+
+        $admin = new AdminApiSource(self::USER);
+        $admin->setIsAdmin(true);
+
+        foreach ([new Context($admin), new Context(new AdminApiSource(self::USER))] as $context) {
+            $body = json_decode((string) $this->route->list($context)->getContent(), true);
+            static::assertIsArray($body);
+            static::assertSame([self::CHANNEL, self::OTHER_CHANNEL], array_keys($body['channels']));
+        }
+    }
+
+    private function admin(): Context
+    {
+        $source = new AdminApiSource(self::USER);
+        $source->setIsAdmin(true);
+
+        return new Context($source);
     }
 
     private function channelExists(bool $exists): void
