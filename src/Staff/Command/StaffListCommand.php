@@ -14,7 +14,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
- * @psalm-suppress UnusedClass Registered as console command in services.xml
+ * @psalm-api Registered as console command in services.xml
  */
 #[AsCommand(name: 'shopbite:staff:list', description: 'Lists the backoffice accounts with role and branches')]
 final class StaffListCommand extends Command

@@ -6,12 +6,12 @@ namespace ShopBite\Tests\Unit\MultiChannelGroup\SalesChannel;
 
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
+use ShopBite\MultiChannelGroup\MultiChannelGroupCollection;
 use ShopBite\MultiChannelGroup\MultiChannelGroupEntity;
 use ShopBite\MultiChannelGroup\SalesChannel\MultiChannelGroupRoute;
 use ShopBite\MultiChannelGroup\SalesChannel\MultiChannelGroupRouteResponse;
 use ShopBite\MultiChannelGroup\SalesChannel\MultiChannelGroupStruct;
 use Shopware\Core\Framework\Context;
-use Shopware\Core\Framework\DataAbstractionLayer\EntityCollection;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
@@ -43,7 +43,7 @@ class MultiChannelGroupRouteTest extends TestCase
         $multiChannelGroup->setSalesChannels($salesChannels);
 
         $searchResult = $this->createMock(EntitySearchResult::class);
-        $searchResult->method('getEntities')->willReturn(new EntityCollection([$multiChannelGroup]));
+        $searchResult->method('getEntities')->willReturn(new MultiChannelGroupCollection([$multiChannelGroup]));
 
         $multiChannelGroupRepository->expects($this->once())
             ->method('search')

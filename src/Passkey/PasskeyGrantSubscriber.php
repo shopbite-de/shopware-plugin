@@ -15,7 +15,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * Shopware enables its grants on every main request in ApiAuthenticationListener::setupOAuth()
  * (priority 128); this adds the passkey grant to the same authorization server right after.
  *
- * @psalm-suppress UnusedClass Registered as event subscriber in services.xml
+ * @psalm-api Registered as event subscriber in services.xml
  */
 final readonly class PasskeyGrantSubscriber implements EventSubscriberInterface
 {

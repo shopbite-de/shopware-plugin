@@ -27,7 +27,7 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Wishlist of configured dishes for logged-in customers, scoped to customer and sales channel.
  *
- * @psalm-suppress UnusedClass
+ * @psalm-api
  */
 #[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => ['store-api']])]
 final readonly class WishlistRoute extends AbstractWishlistRoute

@@ -18,7 +18,7 @@ use Symfony\Component\Routing\Attribute\Route;
  * plugin's own privileges shopbite_settings:read / shopbite_settings:update instead of write
  * access to the whole system configuration (plugin#34).
  *
- * @psalm-suppress UnusedClass Registered through routes.xml
+ * @psalm-api Registered through routes.xml
  */
 #[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => ['api']])]
 final readonly class SettingsRoute

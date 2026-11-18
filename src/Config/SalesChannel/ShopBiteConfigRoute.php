@@ -15,7 +15,7 @@ use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * @psalm-suppress UnusedClass
+ * @psalm-api
  */
 #[Route(defaults: ['_routeScope' => ['store-api']])]
 final readonly class ShopBiteConfigRoute

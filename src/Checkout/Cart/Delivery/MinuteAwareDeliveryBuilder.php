@@ -28,7 +28,7 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
  * original delivery information on the line items is restored afterwards so the cart and
  * Store API keep reporting the configured unit.
  *
- * @psalm-suppress UnusedClass
+ * @psalm-api
  */
 final class MinuteAwareDeliveryBuilder extends DeliveryBuilder
 {

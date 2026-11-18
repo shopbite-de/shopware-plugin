@@ -142,7 +142,7 @@ The official user-facing docs on shopbite.de exist in German and English. **Ever
 - `declare(strict_types=1)`, `final readonly` classes wherever possible, `#[\Override]` on every overridden method (Psalm and cs-fixer enforce parts of this).
 - PHP 8.4 idioms are used freely: `new Foo()->method()` without wrapping parentheses, typed class constants (`public const string`).
 - Runtime type coercion uses `azjezz/psl` (`Psl\Type\bool()->coerce(...)`, `instance_of(...)`) instead of manual casts or assertions.
-- Psalm runs with `findUnusedCode=true`, so classes/methods only reached via DI or routing need `@psalm-suppress UnusedClass` / `PossiblyUnusedMethod` docblocks, as the existing routes do. Prefer a targeted suppress over growing `psalm-baseline.xml`.
+- Psalm 7 runs with `findUnusedCode=true` and graph-based dead-code detection: code only used by unused code counts as unused too. Entry points only reached via DI, routing, the migration collection or the serializer (routes, commands, subscribers, definitions, migrations, response structs) are marked `@psalm-api` in the class docblock, as the existing routes do; methods only reached that way get `@psalm-suppress PossiblyUnusedMethod`. Prefer these over growing `psalm-baseline.xml`.
 - Repository types are documented as generics in docblocks (`EntityRepository<HolidayCollection>`) so Psalm can type `getEntities()`.
 
 ## Tests
