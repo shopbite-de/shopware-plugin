@@ -16,6 +16,7 @@ The ShopBite plugin extends Shopware 6 with specialized features tailored for th
 - **Checkout Enhancements**:
     - Dish line items (`type: container`): the product as first child, extras as further product children. The plugin validates the structure (product children with product ids, at most 30) and sets label and product number from the products; the ingredients to leave out come from `payload.without` (at most 20 names of up to 100 characters) or the `-<ingredient>` parts of the label, and only options of the product's property group "Hauptzutaten" are kept. Dishes carry no receipt print type, so the printer prints their label.
     - Receipt print type processing for specialized fulfillment workflows.
+    - Ordering window: a cart validator blocks Store API orders while ordering is paused for the sales channel (`isCheckoutEnabled`), on holidays and when no opening interval of today ends after now plus the delivery time (orders for later today are allowed, intervals past midnight count). Time zone: the sales channel's business time zone (Shopware 6.7.13+), else Europe/Berlin. Cart error keys: `shopbite-ordering-paused`, `shopbite-ordering-holiday`, `shopbite-ordering-closed`.
 - **Headless Optimized**: Designed from the ground up to work with the ShopBite Nuxt storefront and the Shopware Store API.
 
 ## Integration

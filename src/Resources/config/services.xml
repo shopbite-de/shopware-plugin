@@ -129,6 +129,14 @@
             <tag name="shopware.cart.collector" priority="4500"/>
         </service>
 
+        <!-- Orders only while ordering is open, outside holidays and within the opening hours -->
+        <service id="ShopBite\Checkout\Cart\Ordering\OrderingWindowValidator">
+            <argument type="service" id="ShopBite\Settings\RestaurantSettings"/>
+            <argument type="service" id="shopbite_business_hour.repository"/>
+            <argument type="service" id="shopbite_holiday.repository"/>
+            <tag name="shopware.cart.validator"/>
+        </service>
+
         <service id="ShopBite\Checkout\Cart\Delivery\MinuteAwareDeliveryBuilder"
                  decorates="Shopware\Core\Checkout\Cart\Delivery\DeliveryBuilder">
             <argument type="service" id=".inner"/>
