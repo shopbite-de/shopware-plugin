@@ -6,10 +6,12 @@ namespace ShopBite\Passkey;
 
 use DateInterval;
 use League\OAuth2\Server\Entities\ClientEntityInterface;
+use League\OAuth2\Server\Entities\ScopeEntityInterface;
 use League\OAuth2\Server\Entities\UserEntityInterface;
 use League\OAuth2\Server\Exception\OAuthServerException;
 use League\OAuth2\Server\Grant\PasswordGrant;
 use League\OAuth2\Server\Repositories\RefreshTokenRepositoryInterface;
+use League\OAuth2\Server\Repositories\ScopeRepositoryInterface;
 use League\OAuth2\Server\Repositories\UserRepositoryInterface;
 use League\OAuth2\Server\RequestAccessTokenEvent;
 use League\OAuth2\Server\RequestEvent;
@@ -17,6 +19,7 @@ use League\OAuth2\Server\RequestRefreshTokenEvent;
 use League\OAuth2\Server\ResponseTypes\ResponseTypeInterface;
 use Override;
 use Psr\Http\Message\ServerRequestInterface;
+use Shopware\Core\Framework\Api\OAuth\Scope\UserVerifiedScope;
 use Shopware\Core\Framework\Api\OAuth\User\User;
 
 /**
@@ -26,6 +29,9 @@ use Shopware\Core\Framework\Api\OAuth\User\User;
  *
  * Shopware's ScopeRepository grants "write" only to the password grant; a passkey login is the
  * same person proving themselves, so the scopes are finalized as for a password login.
+ * Except "user-verified": that scope stands for a fresh password check (Shopware asks for it
+ * before changing the own user, the plugin before registering a passkey), so a passkey token
+ * never carries it.
  */
 final class PasskeyGrant extends PasswordGrant
 {
@@ -55,7 +61,7 @@ final class PasskeyGrant extends PasswordGrant
         $scopes = $this->validateScopes($this->getRequestParameter('scope', $request, $this->defaultScope));
         $user = $this->validateUser($request, $client);
 
-        $finalizedScopes = $this->scopeRepository->finalizeScopes($scopes, 'password', $client, $user->getIdentifier());
+        $finalizedScopes = self::finalizeScopesForPasskey($this->scopeRepository, $scopes, $client, $user->getIdentifier());
 
         $accessToken = $this->issueAccessToken($accessTokenTTL, $client, $user->getIdentifier(), $finalizedScopes);
         $this->getEmitter()->emit(new RequestAccessTokenEvent(RequestEvent::ACCESS_TOKEN_ISSUED, $request, $accessToken));
@@ -68,6 +74,27 @@ final class PasskeyGrant extends PasswordGrant
         }
 
         return $responseType;
+    }
+
+    /**
+     * The scopes of a password login, without "user-verified".
+     *
+     * @param array<ScopeEntityInterface> $scopes
+     *
+     * @return array<ScopeEntityInterface>
+     */
+    public static function finalizeScopesForPasskey(
+        ScopeRepositoryInterface $scopeRepository,
+        array $scopes,
+        ClientEntityInterface $client,
+        string $userId,
+    ): array {
+        $withoutUserVerified = static fn (array $scopes): array => array_values(array_filter(
+            $scopes,
+            static fn (ScopeEntityInterface $scope): bool => $scope->getIdentifier() !== UserVerifiedScope::IDENTIFIER,
+        ));
+
+        return $withoutUserVerified($scopeRepository->finalizeScopes($withoutUserVerified($scopes), 'password', $client, $userId));
     }
 
     #[Override]

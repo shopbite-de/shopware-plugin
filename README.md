@@ -82,6 +82,14 @@ People log in to the backoffice with fingerprint or Face ID instead of a passwor
 
 Switch it on in the plugin configuration (card "Backoffice passkeys"): **relying party id** = host of the backoffice (e.g. `backoffice.pizzeria-lafattoria.de`), **origins** = its URL(s). Without both, the grant and the routes are off. Passkeys only work on that host; a deactivated user cannot log in with a passkey either.
 
+Registering a passkey (`register-options`, `register`) needs an access token with the scope `user-verified`, i.e. a fresh password login (`grant_type=password` with `scope=write user-verified`), as Shopware asks before changes to the own user. Tokens from the passkey grant never carry that scope. A user's passkeys are removed when their password changes or they are deactivated (Administration, Admin API, password recovery, `shopbite:staff:update`). Each login or registration challenge is used once, also under concurrent requests.
+
+```bash
+bin/console shopbite:staff:passkeys counter                     # list
+bin/console shopbite:staff:passkeys counter --revoke=<passkeyId> # remove one
+bin/console shopbite:staff:passkeys counter --revoke-all
+```
+
 ## "Jetzt drucken"
 
 Order custom fields `shopbite_print_requested_at` and `shopbite_printed_at` (set `shopbite_order_set`): the backoffice sets the first, the [order printer](https://github.com/shopbite-de/order-printer) prints the receipt again and sets the second after every print.

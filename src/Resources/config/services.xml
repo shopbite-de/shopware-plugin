@@ -73,6 +73,7 @@
             <argument type="service" id="ShopBite\Passkey\PasskeyStore"/>
             <argument type="service" id="ShopBite\Passkey\PasskeyConfig"/>
             <argument type="service" id="cache.object"/>
+            <argument type="service" id="lock.factory"/>
         </service>
 
         <service id="ShopBite\Passkey\PasskeyGrantSubscriber">
@@ -82,6 +83,11 @@
             <argument type="service" id="ShopBite\Passkey\PasskeyService"/>
             <argument>%shopware.api.access_token_ttl%</argument>
             <argument>%shopware.api.refresh_token_ttl%</argument>
+            <tag name="kernel.event_subscriber"/>
+        </service>
+
+        <service id="ShopBite\Passkey\PasskeyRevocationSubscriber">
+            <argument type="service" id="ShopBite\Passkey\PasskeyStore"/>
             <tag name="kernel.event_subscriber"/>
         </service>
 
@@ -114,6 +120,11 @@
 
         <service id="ShopBite\Staff\Command\StaffListCommand">
             <argument type="service" id="ShopBite\Staff\StaffDirectory"/>
+            <tag name="console.command"/>
+        </service>
+
+        <service id="ShopBite\Staff\Command\StaffPasskeysCommand">
+            <argument type="service" id="ShopBite\Passkey\PasskeyStore"/>
             <tag name="console.command"/>
         </service>
 

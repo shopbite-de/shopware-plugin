@@ -15,6 +15,8 @@ use ShopBite\Passkey\PasskeyService;
 use ShopBite\Passkey\PasskeyStore;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
+use Symfony\Component\Lock\LockFactory;
+use Symfony\Component\Lock\Store\InMemoryStore;
 
 #[CoversClass(PasskeyService::class)]
 #[CoversClass(PasskeyConfig::class)]
@@ -27,12 +29,14 @@ class PasskeyServiceTest extends TestCase
     private Connection&MockObject $connection;
     private PasskeyStore $store;
     private ArrayAdapter $cache;
+    private InMemoryStore $locks;
 
     protected function setUp(): void
     {
         $this->connection = $this->createMock(Connection::class);
         $this->store = new PasskeyStore($this->connection);
         $this->cache = new ArrayAdapter();
+        $this->locks = new InMemoryStore();
     }
 
     public function testConfigNeedsHostAndOrigins(): void
@@ -47,7 +51,7 @@ class PasskeyServiceTest extends TestCase
 
     public function testEverythingIsRefusedWhenNotConfigured(): void
     {
-        $service = new PasskeyService($this->store, $this->config('', ''), $this->cache);
+        $service = new PasskeyService($this->store, $this->config('', ''), $this->cache, new LockFactory($this->locks));
         static::assertFalse($service->enabled());
         $this->expectException(PasskeyException::class);
         $service->loginOptions();
@@ -100,9 +104,78 @@ class PasskeyServiceTest extends TestCase
         }
     }
 
+    public function testChallengeIsUsedOnce(): void
+    {
+        $this->userExists();
+        $service = $this->service();
+        $service->registrationOptions(self::USER);
+
+        try {
+            $service->register(self::USER, 'not json', 'iPhone');
+            static::fail('no exception');
+        } catch (PasskeyException $e) {
+            static::assertSame('Malformed credential.', $e->getMessage());
+        }
+
+        $this->expectExceptionMessage('expired');
+        $service->register(self::USER, 'not json', 'iPhone');
+    }
+
+    public function testChallengeTakenByAConcurrentRequestIsRefused(): void
+    {
+        $this->userExists();
+        $service = $this->service();
+        $service->registrationOptions(self::USER);
+
+        // another request is consuming the same challenge right now
+        $concurrent = new LockFactory($this->locks)->createLock('shopbite_passkey_register_' . self::USER);
+        static::assertTrue($concurrent->acquire());
+
+        try {
+            $service->register(self::USER, 'not json', 'iPhone');
+            static::fail('no exception');
+        } catch (PasskeyException $e) {
+            static::assertStringContainsString('expired', $e->getMessage());
+        }
+        static::assertTrue($this->cache->hasItem('shopbite_passkey_register_' . self::USER), 'left to the request holding it');
+    }
+
+    public function testLoginChallengeIsLockedWhileTaken(): void
+    {
+        $options = $this->service()->loginOptions();
+        $concurrent = new LockFactory($this->locks)->createLock('shopbite_passkey_login_' . $options['challenge']);
+        static::assertTrue($concurrent->acquire());
+
+        $credential = json_encode([
+            'id' => 'AQID',
+            'rawId' => 'AQID',
+            'type' => 'public-key',
+            'response' => [
+                'clientDataJSON' => PasskeyService::toBase64Url((string) json_encode([
+                    'type' => 'webauthn.get',
+                    'challenge' => $options['challenge'],
+                    'origin' => 'https://backoffice.example',
+                ])),
+                'authenticatorData' => PasskeyService::toBase64Url(str_repeat("\0", 37)),
+                'signature' => 'AQID',
+            ],
+        ]);
+        $this->connection->expects($this->never())->method('fetchAssociative');
+
+        $this->expectExceptionMessage('Passkey login failed.');
+        $this->service()->verifyLogin((string) $credential);
+    }
+
+    private function userExists(): void
+    {
+        $this->connection->method('fetchAssociative')
+            ->willReturn(['username' => 'chef', 'first_name' => 'Clara', 'last_name' => 'Chef', 'active' => 1]);
+        $this->connection->method('fetchFirstColumn')->willReturn([]);
+    }
+
     private function service(): PasskeyService
     {
-        return new PasskeyService($this->store, $this->config('backoffice.example', 'https://backoffice.example'), $this->cache);
+        return new PasskeyService($this->store, $this->config('backoffice.example', 'https://backoffice.example'), $this->cache, new LockFactory($this->locks));
     }
 
     private function config(string $rpId, string $origins): PasskeyConfig

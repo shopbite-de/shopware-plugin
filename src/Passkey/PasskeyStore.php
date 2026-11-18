@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ShopBite\Passkey;
 
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Uuid\Uuid;
@@ -80,6 +81,37 @@ final readonly class PasskeyStore
             'id' => Uuid::fromHexToBytes($id),
             'user_id' => Uuid::fromHexToBytes($userId),
         ]) > 0;
+    }
+
+    /**
+     * Deletes all passkeys of these users (password changed, deactivated, revoked).
+     *
+     * @param list<string> $userIds
+     */
+    public function deleteForUsers(array $userIds): int
+    {
+        if ($userIds === []) {
+            return 0;
+        }
+
+        return (int) $this->connection->executeStatement(
+            'DELETE FROM shopbite_passkey WHERE user_id IN (:userIds)',
+            ['userIds' => array_map(Uuid::fromHexToBytes(...), $userIds)],
+            ['userIds' => ArrayParameterType::BINARY],
+        );
+    }
+
+    /**
+     * The id of a user by login name.
+     */
+    public function userIdByUsername(string $username): ?string
+    {
+        $id = $this->connection->fetchOne(
+            'SELECT LOWER(HEX(id)) FROM `user` WHERE username = :username',
+            ['username' => $username],
+        );
+
+        return \is_string($id) ? $id : null;
     }
 
     public function recordUse(string $id, string $record): void
