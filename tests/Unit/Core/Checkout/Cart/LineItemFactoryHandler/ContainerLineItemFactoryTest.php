@@ -5,19 +5,32 @@ declare(strict_types=1);
 namespace ShopBite\Tests\Unit\Core\Checkout\Cart\LineItemFactoryHandler;
 
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use ShopBite\Checkout\Cart\Dish\DishLineItemException;
+use ShopBite\Checkout\Cart\Dish\DishText;
 use ShopBite\Checkout\Cart\LineItemFactoryHandler\ContainerLineItemFactory;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
+use Shopware\Core\Checkout\Cart\LineItem\LineItemCollection;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 
 #[CoversClass(ContainerLineItemFactory::class)]
+#[CoversClass(DishLineItemException::class)]
+#[CoversClass(DishText::class)]
 class ContainerLineItemFactoryTest extends TestCase
 {
+    private const string PIZZA_ID = '0190a1b2c3d4e5f60718293a4b5c6d7e';
+    private const string SALAMI_ID = '0190a1b2c3d4e5f60718293a4b5c6d7f';
+    private const string MAIN_CHILD_ID = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
+
     private ContainerLineItemFactory $factory;
+
+    private SalesChannelContext $context;
 
     protected function setUp(): void
     {
         $this->factory = new ContainerLineItemFactory();
+        $this->context = $this->createStub(SalesChannelContext::class);
     }
 
     public function testSupports(): void
@@ -26,60 +39,234 @@ class ContainerLineItemFactoryTest extends TestCase
         $this->assertFalse($this->factory->supports('product'));
     }
 
-    public function testCreate(): void
+    public function testCreateFromStorefrontRequest(): void
     {
-        $context = $this->createMock(SalesChannelContext::class);
-        $data = [
-            'id' => 'container-id',
-            'label' => 'Container Label',
-            'payload' => ['foo' => 'bar'],
-            'quantity' => 1,
-            'children' => [
-                ['id' => 'child-1', 'quantity' => 1],
-                ['id' => 'child-2', 'referencedId' => 'ref-2', 'quantity' => 2],
-            ],
-        ];
+        $lineItem = $this->factory->create($this->storefrontRequest(quantity: 2), $this->context);
 
-        $lineItem = $this->factory->create($data, $context);
-
-        $this->assertSame('container-id', $lineItem->getId());
+        $this->assertSame('5f0c1e4b-6f43-5b3c-9a3f-0c1d2e3f4a5b', $lineItem->getId());
         $this->assertSame('container', $lineItem->getType());
-        $this->assertSame('Container Label', $lineItem->getLabel());
-        $this->assertSame(['foo' => 'bar'], $lineItem->getPayload());
-        $this->assertSame(1, $lineItem->getQuantity());
+        $this->assertSame(self::PIZZA_ID, $lineItem->getReferencedId());
+        $this->assertSame(2, $lineItem->getQuantity());
         $this->assertTrue($lineItem->isRemovable());
         $this->assertTrue($lineItem->isStackable());
 
         $children = $lineItem->getChildren();
         $this->assertCount(2, $children);
 
-        $child1 = $children->get('child-1');
-        $this->assertNotNull($child1);
-        $this->assertSame('child-1', $child1->getId());
-        $this->assertSame('product', $child1->getType());
-        $this->assertSame(1, $child1->getQuantity());
+        $main = $children->get(self::MAIN_CHILD_ID);
+        $this->assertNotNull($main);
+        $this->assertSame('product', $main->getType());
+        $this->assertSame(self::PIZZA_ID, $main->getReferencedId());
+        $this->assertSame(2, $main->getQuantity());
 
-        $child2 = $children->get('child-2');
-        $this->assertNotNull($child2);
-        $this->assertSame('child-2', $child2->getId());
-        $this->assertSame('ref-2', $child2->getReferencedId());
-        $this->assertSame(2, $child2->getQuantity());
+        $extra = $children->get(self::SALAMI_ID);
+        $this->assertNotNull($extra);
+        $this->assertSame(self::SALAMI_ID, $extra->getReferencedId());
+        $this->assertSame(2, $extra->getQuantity());
     }
 
-    public function testUpdate(): void
+    public function testChildQuantityFollowsTheDish(): void
     {
-        $context = $this->createMock(SalesChannelContext::class);
-        $lineItem = new LineItem('container-id', 'container');
-        $lineItem->setStackable(true);
+        $data = $this->storefrontRequest(quantity: 3);
+        $data['children'] = [['id' => self::PIZZA_ID, 'quantity' => 1]];
 
-        $data = [
-            'payload' => ['updated' => true],
-            'quantity' => 5,
+        $lineItem = $this->factory->create($data, $this->context);
+
+        $this->assertSame(3, $lineItem->getChildren()->get(self::PIZZA_ID)?->getQuantity());
+    }
+
+    public function testLabelIsNotTakenFromTheRequest(): void
+    {
+        $lineItem = $this->factory->create($this->storefrontRequest(label: 'Free pizza'), $this->context);
+
+        $this->assertNull($lineItem->getLabel());
+    }
+
+    public function testPayloadKeepsOnlyTheIngredientsToLeaveOut(): void
+    {
+        $data = $this->storefrontRequest();
+        $data['payload'] = [
+            'productNumber' => 'SW-FAKE',
+            'shopbite_receipt_print_type' => 'label',
+            'without' => ['Zwiebeln'],
+            'other' => 'value',
         ];
 
-        $this->factory->update($lineItem, $data, $context);
+        $lineItem = $this->factory->create($data, $this->context);
 
-        $this->assertSame(['updated' => true], $lineItem->getPayload());
+        $this->assertSame(['without' => ['Zwiebeln']], $lineItem->getPayload());
+    }
+
+    public function testIngredientsToLeaveOutAreReadFromTheStorefrontLabel(): void
+    {
+        $lineItem = $this->factory->create(
+            $this->storefrontRequest(label: 'Pizza Margherita +Salami -Zwiebeln -Rote Paprika'),
+            $this->context,
+        );
+
+        $this->assertSame(['without' => ['Zwiebeln', 'Rote Paprika']], $lineItem->getPayload());
+    }
+
+    public function testLabelWithoutRemovedIngredientsGivesAnEmptyList(): void
+    {
+        $lineItem = $this->factory->create($this->storefrontRequest(label: 'Pizza +Salami'), $this->context);
+
+        $this->assertSame(['without' => []], $lineItem->getPayload());
+    }
+
+    public function testIngredientTextIsCleanedAndDeduplicated(): void
+    {
+        $data = $this->storefrontRequest();
+        $data['payload'] = ['without' => [" Zwie\nbeln\t", 'Zwiebeln', "\x07", '']];
+
+        $lineItem = $this->factory->create($data, $this->context);
+
+        $this->assertSame(['without' => ['Zwiebeln']], $lineItem->getPayload());
+    }
+
+    public function testIngredientsFromTheLabelAreCapped(): void
+    {
+        $label = 'Pizza -' . str_repeat('x', 101)
+            . implode('', array_map(static fn (int $i): string => ' -Zutat' . $i, range(1, 25)));
+
+        $lineItem = $this->factory->create($this->storefrontRequest(label: $label), $this->context);
+
+        $without = $lineItem->getPayloadValue('without');
+        $this->assertIsArray($without);
+        $this->assertCount(20, $without);
+        $this->assertSame('Zutat1', $without[0]);
+    }
+
+    /**
+     * @return iterable<string, array{mixed}>
+     */
+    public static function invalidWithoutProvider(): iterable
+    {
+        yield 'not a list' => [['a' => 'Zwiebeln']];
+        yield 'a string' => ['Zwiebeln'];
+        yield 'no string entry' => [[['Zwiebeln']]];
+        yield 'too many entries' => [array_map(static fn (int $i): string => 'Zutat' . $i, range(1, 21))];
+        yield 'too long entry' => [[str_repeat('x', 101)]];
+    }
+
+    #[DataProvider('invalidWithoutProvider')]
+    public function testInvalidIngredientListIsRejected(mixed $without): void
+    {
+        $data = $this->storefrontRequest();
+        $data['payload'] = ['without' => $without];
+
+        $this->expectException(DishLineItemException::class);
+
+        $this->factory->create($data, $this->context);
+    }
+
+    /**
+     * @return iterable<string, array{array<string, mixed>}>
+     */
+    public static function invalidChildrenProvider(): iterable
+    {
+        $main = ['id' => self::MAIN_CHILD_ID, 'type' => 'product', 'referencedId' => self::PIZZA_ID, 'quantity' => 1];
+
+        yield 'no children' => [['children' => []]];
+        yield 'children no list' => [['children' => 'x']];
+        yield 'child no array' => [['children' => ['x']]];
+        yield 'child of another type' => [['children' => [['type' => 'credit'] + $main]]];
+        yield 'child without id' => [['children' => [['id' => null] + $main]]];
+        yield 'child id with odd characters' => [['children' => [['id' => 'a b'] + $main]]];
+        yield 'referenced id no uuid' => [['children' => [['referencedId' => 'not-a-uuid'] + $main]]];
+        yield 'id no uuid without referenced id' => [['children' => [['id' => 'child-1', 'quantity' => 1]]]];
+        yield 'quantity zero' => [['children' => [['quantity' => 0] + $main]]];
+        yield 'quantity no int' => [['children' => [['quantity' => '1'] + $main]]];
+        yield 'duplicate child' => [['children' => [$main, $main]]];
+        yield 'too many children' => [['children' => array_merge([$main], array_map(
+            static fn (int $i): array => ['id' => \sprintf('%032x', $i), 'quantity' => 1],
+            range(1, 30),
+        ))]];
+    }
+
+    /**
+     * @param array<string, mixed> $override
+     */
+    #[DataProvider('invalidChildrenProvider')]
+    public function testInvalidChildrenAreRejected(array $override): void
+    {
+        $this->expectException(DishLineItemException::class);
+
+        $this->factory->create($override + $this->storefrontRequest(), $this->context);
+    }
+
+    public function testThirtyChildrenAreAccepted(): void
+    {
+        $data = $this->storefrontRequest();
+        $data['children'] = array_map(
+            static fn (int $i): array => ['id' => \sprintf('%032x', $i), 'quantity' => 1],
+            range(1, 30),
+        );
+
+        $this->assertCount(30, $this->factory->create($data, $this->context)->getChildren());
+    }
+
+    public function testInvalidQuantityIsRejected(): void
+    {
+        $this->expectException(DishLineItemException::class);
+
+        $this->factory->create(['quantity' => 0] + $this->storefrontRequest(), $this->context);
+    }
+
+    public function testUpdateChangesQuantityAndKeepsChildren(): void
+    {
+        $lineItem = $this->factory->create($this->storefrontRequest(), $this->context);
+
+        $this->factory->update($lineItem, ['id' => $lineItem->getId(), 'quantity' => 5], $this->context);
+
         $this->assertSame(5, $lineItem->getQuantity());
+        $this->assertCount(2, $lineItem->getChildren());
+        foreach ($lineItem->getChildren() as $child) {
+            $this->assertSame(5, $child->getQuantity());
+        }
+    }
+
+    public function testUpdateWhitelistsThePayload(): void
+    {
+        $lineItem = new LineItem('container-id', 'container', self::PIZZA_ID);
+        $lineItem->setStackable(true);
+        $lineItem->setChildren(new LineItemCollection([new LineItem(self::MAIN_CHILD_ID, 'product', self::PIZZA_ID)]));
+
+        $this->factory->update($lineItem, [
+            'label' => 'Fake',
+            'payload' => ['productNumber' => 'SW-FAKE', 'without' => ['Zwiebeln']],
+        ], $this->context);
+
+        $this->assertNull($lineItem->getLabel());
+        $this->assertSame(['without' => ['Zwiebeln']], $lineItem->getPayload());
+    }
+
+    public function testUpdateValidatesNewChildren(): void
+    {
+        $lineItem = $this->factory->create($this->storefrontRequest(), $this->context);
+
+        $this->expectException(DishLineItemException::class);
+
+        $this->factory->update($lineItem, ['children' => [['id' => 'x', 'type' => 'custom']]], $this->context);
+    }
+
+    /**
+     * What the storefront posts for a dish with extras or left-out ingredients.
+     *
+     * @return array<string, mixed>
+     */
+    private function storefrontRequest(int $quantity = 1, string $label = 'Pizza Margherita +Salami'): array
+    {
+        return [
+            'id' => '5f0c1e4b-6f43-5b3c-9a3f-0c1d2e3f4a5b',
+            'quantity' => $quantity,
+            'type' => 'container',
+            'label' => $label,
+            'payload' => ['productNumber' => 'SW-10001'],
+            'children' => [
+                ['id' => self::MAIN_CHILD_ID, 'quantity' => $quantity, 'type' => 'product', 'referencedId' => self::PIZZA_ID],
+                ['id' => self::SALAMI_ID, 'type' => 'product', 'quantity' => $quantity],
+            ],
+        ];
     }
 }
