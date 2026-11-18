@@ -27,7 +27,7 @@ vendor/bin/phpunit --filter testLoad
 
 CI (`.github/workflows/ci.yml`) runs `make cs-check`, `make psalm`, `make test` against Shopware 6.7.5.1 and 6.7.16.1 on PHP 8.4. Keep code compatible with both. Each job resolves all dependencies anew for its Shopware version, so dev-tool constraints in `composer.json` must leave room for versions that accept the Symfony of 6.7.5.1 (newer php-cs-fixer releases require Symfony 7.4).
 
-**Psalm needs PHP 8.4.** On a PHP 8.5 host it reports a bogus `InvalidAttribute` for every `#[\Override]`. Run it inside the dev container instead:
+Psalm 7 also runs on a PHP 8.5 host (Psalm 6 reported a bogus `InvalidAttribute` for every `#[\Override]` there). Without a local PHP, run the checks in the dev container:
 
 ```bash
 docker compose exec -w /var/www/html/custom/static-plugins/ShopBitePlugin web php vendor/bin/psalm --no-cache
