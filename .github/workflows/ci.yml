@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         php-version: ['8.4']
-        shopware-version: ['6.7.5.1', '6.7.14.0']
+        shopware-version: ['6.7.5.1', '6.7.16.1']
 
     steps:
       - name: Checkout
@@ -28,10 +28,13 @@ jobs:
           extensions: dom, curl, libxml, mbstring, zip, pdo, sqlite, pdo_sqlite, bcmath, gd, intl, mysql, mysqli, pdo_mysql
           coverage: none
 
+      # Full update instead of a partial one: the dev tools share Symfony packages with
+      # Shopware, so they must be allowed to move to versions the tested Shopware accepts.
       - name: Install dependencies
         run: |
           composer config audit.block-insecure false
-          composer require shopware/core:${{ matrix.shopware-version }} --no-interaction --no-progress --with-all-dependencies
+          composer require shopware/core:${{ matrix.shopware-version }} --no-interaction --no-update
+          composer update --no-interaction --no-progress --with-all-dependencies
 
       - name: PHP CS Fixer check
         run: make cs-check
