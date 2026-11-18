@@ -43,6 +43,11 @@ final class StaffPasskeysCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
         $username = (string) $input->getArgument('username');
+        if ($input->getOption('revoke') !== null && $input->getOption('revoke-all')) {
+            $io->error('Use either --revoke or --revoke-all.');
+
+            return self::INVALID;
+        }
         $userId = $this->store->userIdByUsername($username);
         if ($userId === null) {
             $io->error(\sprintf('No account "%s".', $username));
