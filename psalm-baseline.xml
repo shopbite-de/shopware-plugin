@@ -2,9 +2,6 @@
 <files psalm-version="7.10.0@2d8a48d1611508108eaa653ef599010da65eff3f">
   <file src="src/BusinessHour/BusinessHourEntity.php">
     <PossiblyUnusedMethod>
-      <code><![CDATA[getClosingTime]]></code>
-      <code><![CDATA[getDayOfWeek]]></code>
-      <code><![CDATA[getOpeningTime]]></code>
       <code><![CDATA[getSalesChannel]]></code>
       <code><![CDATA[getSalesChannelId]]></code>
       <code><![CDATA[setClosingTime]]></code>
@@ -48,10 +45,8 @@
   </file>
   <file src="src/Holiday/HolidayEntity.php">
     <PossiblyUnusedMethod>
-      <code><![CDATA[getEnd]]></code>
       <code><![CDATA[getSalesChannel]]></code>
       <code><![CDATA[getSalesChannelId]]></code>
-      <code><![CDATA[getStart]]></code>
       <code><![CDATA[setEnd]]></code>
       <code><![CDATA[setSalesChannel]]></code>
       <code><![CDATA[setSalesChannelId]]></code>
