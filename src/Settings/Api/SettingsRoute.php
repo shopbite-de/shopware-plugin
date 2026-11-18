@@ -54,7 +54,7 @@ final readonly class SettingsRoute
         $allowed = $this->branchBinding->salesChannelIds($context);
         $channels = [];
         foreach ($this->navigationCategories() as $id => $navigationCategoryId) {
-            if ($allowed !== null && !\in_array($id, $allowed, true)) {
+            if (!BranchBinding::permits($allowed, $id)) {
                 continue;
             }
             $channels[$id] = $this->settings->read($id, $navigationCategoryId);

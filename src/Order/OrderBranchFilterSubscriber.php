@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ShopBite\Order;
 
 use ShopBite\Staff\BranchBinding;
+use Shopware\Core\Framework\Api\Context\AdminApiSource;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\BeforeEntityAggregationEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntitySearchedEvent;
@@ -13,25 +14,18 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 /**
  * Admin API users bound to branches (BranchBinding) read only the orders of these sales
- * channels: searches and aggregations on orders and the entities that belong to one order
- * get a filter on the order's sales channel. Admins, integrations, unbound users and
- * system-scope reads are unchanged. Orders loaded as an association of another entity
- * (e.g. a customer's orders) are not filtered; writes are not checked here.
+ * channels: searches and aggregations on an entity of the order family get a filter on the
+ * order's sales channel. Associations are loaded without these events, so criteria that reach
+ * the order family from another entity (`sales_channel.orders`, `order.salesChannel.orders`,
+ * also as filter, sorting or aggregation path) are refused for bound users (OrderPathGuard).
+ * Admins, integrations, unbound users and system-scope reads are unchanged.
  *
  * @psalm-api
  */
 final readonly class OrderBranchFilterSubscriber implements EventSubscriberInterface
 {
-    /** Entity name => path of the order's sales channel id. */
-    private const array FILTERED = [
-        'order' => 'salesChannelId',
-        'order_line_item' => 'order.salesChannelId',
-        'order_delivery' => 'order.salesChannelId',
-        'order_transaction' => 'order.salesChannelId',
-        'order_customer' => 'order.salesChannelId',
-        'order_address' => 'order.salesChannelId',
-        'document' => 'order.salesChannelId',
-    ];
+    /** Never a sales channel id: a user with an unreadable binding sees no orders. */
+    private const string NO_SALES_CHANNEL = '00000000000000000000000000000000';
 
     /** @psalm-suppress PossiblyUnusedMethod Constructed by the container */
     public function __construct(private BranchBinding $branchBinding)
@@ -49,15 +43,25 @@ final readonly class OrderBranchFilterSubscriber implements EventSubscriberInter
 
     public function onSearch(EntitySearchedEvent|BeforeEntityAggregationEvent $event): void
     {
-        $field = self::FILTERED[$event->getDefinition()->getEntityName()] ?? null;
         $context = $event->getContext();
-        if ($field === null || $context->getScope() === Context::SYSTEM_SCOPE) {
+        if ($context->getScope() === Context::SYSTEM_SCOPE || !$context->getSource() instanceof AdminApiSource) {
+            return;
+        }
+
+        $definition = $event->getDefinition();
+        $field = OrderFamily::SALES_CHANNEL_PATHS[$definition->getEntityName()] ?? null;
+        $forbiddenPath = OrderPathGuard::forbiddenPath($definition, $event->getCriteria());
+        if ($field === null && $forbiddenPath === null) {
             return;
         }
 
         $salesChannelIds = $this->branchBinding->salesChannelIds($context);
-        if ($salesChannelIds !== null) {
-            $event->getCriteria()->addFilter(new EqualsAnyFilter($field, $salesChannelIds));
+        if ($salesChannelIds === null) {
+            return;
         }
+        if ($forbiddenPath !== null) {
+            throw BranchAccessException::orderPath($forbiddenPath);
+        }
+        $event->getCriteria()->addFilter(new EqualsAnyFilter($field, $salesChannelIds ?: [self::NO_SALES_CHANNEL]));
     }
 }
