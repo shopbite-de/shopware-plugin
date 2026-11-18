@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ShopBite\Passkey;
 
 use Psr\Cache\CacheItemPoolInterface;
+use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Serializer\Encoder\JsonEncode;
 use Symfony\Component\Serializer\Normalizer\AbstractObjectNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
@@ -34,7 +35,8 @@ use Webauthn\PublicKeyCredentialUserEntity;
  * options (a one-time challenge, no username needed, the passkey is discoverable), the browser
  * signs it, PasskeyGrant hands the assertion to verifyLogin() and gets the user id.
  *
- * Options live in the cache for five minutes and are used once.
+ * Options live in the cache for five minutes and are used once: taking them holds a lock on
+ * the key, so two concurrent requests with the same challenge cannot both use it.
  */
 final readonly class PasskeyService
 {
@@ -48,6 +50,7 @@ final readonly class PasskeyService
         private PasskeyStore $store,
         private PasskeyConfig $config,
         private CacheItemPoolInterface $cache,
+        private LockFactory $locks,
     ) {
         $this->serializer = new WebauthnSerializerFactory(
             new AttestationStatementSupportManager([new NoneAttestationStatementSupport()]),
@@ -231,17 +234,31 @@ final readonly class PasskeyService
         $this->cache->save($item);
     }
 
-    /** Reads and removes, so a challenge works once. */
+    /**
+     * Reads and removes under a lock, so a challenge works once. A challenge another request
+     * is taking right now counts as gone.
+     */
     private function take(string $key): ?string
     {
-        $item = $this->cache->getItem(self::CACHE_PREFIX . $key);
-        if (!$item->isHit()) {
+        $lock = $this->locks->createLock(self::CACHE_PREFIX . $key, 30);
+        if (!$lock->acquire()) {
             return null;
         }
-        $this->cache->deleteItem(self::CACHE_PREFIX . $key);
-        $value = $item->get();
 
-        return \is_string($value) ? $value : null;
+        try {
+            $item = $this->cache->getItem(self::CACHE_PREFIX . $key);
+            if (!$item->isHit()) {
+                return null;
+            }
+            if (!$this->cache->deleteItem(self::CACHE_PREFIX . $key)) {
+                return null;
+            }
+            $value = $item->get();
+
+            return \is_string($value) ? $value : null;
+        } finally {
+            $lock->release();
+        }
     }
 
     private function assertEnabled(): void

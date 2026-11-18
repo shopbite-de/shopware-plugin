@@ -6,7 +6,9 @@ namespace ShopBite\Passkey\Api;
 
 use ShopBite\Passkey\PasskeyException;
 use ShopBite\Passkey\PasskeyService;
+use Shopware\Core\Framework\Api\ApiException;
 use Shopware\Core\Framework\Api\Context\AdminApiSource;
+use Shopware\Core\Framework\Api\OAuth\Scope\UserVerifiedScope;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\PlatformRequest;
@@ -18,7 +20,9 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Admin API for the backoffice's passkeys. A logged-in user manages only their own passkeys
  * (no ACL privilege needed); the login options are open, the login itself is the
- * shopbite_passkey grant on /api/oauth/token.
+ * shopbite_passkey grant on /api/oauth/token. Registering a passkey needs a token with the
+ * scope "user-verified" (a password login with that scope, as Shopware asks before changing
+ * the own user), so a session alone cannot add a passkey.
  *
  * @psalm-api Registered through routes.xml
  */
@@ -41,8 +45,10 @@ final readonly class PasskeyRoute
 
     /** @psalm-suppress PossiblyUnusedMethod */
     #[Route(path: '/api/_action/shopbite/passkey/register-options', name: 'api.action.shopbite.passkey.register-options', methods: ['POST'])]
-    public function registerOptions(Context $context): JsonResponse
+    public function registerOptions(Request $request, Context $context): JsonResponse
     {
+        self::assertUserVerified($request);
+
         return $this->guard(fn (): array => $this->passkeys->registrationOptions($this->userId($context)));
     }
 
@@ -50,6 +56,7 @@ final readonly class PasskeyRoute
     #[Route(path: '/api/_action/shopbite/passkey/register', name: 'api.action.shopbite.passkey.register', methods: ['POST'])]
     public function register(Request $request, Context $context): JsonResponse
     {
+        self::assertUserVerified($request);
         $credential = $request->request->all()['credential'] ?? null;
         if (\is_array($credential)) {
             $credential = json_encode($credential, \JSON_THROW_ON_ERROR);
@@ -80,6 +87,14 @@ final readonly class PasskeyRoute
     public function loginOptions(): JsonResponse
     {
         return $this->guard(fn (): array => $this->passkeys->loginOptions());
+    }
+
+    private static function assertUserVerified(Request $request): void
+    {
+        $scopes = $request->attributes->get(PlatformRequest::ATTRIBUTE_OAUTH_SCOPES);
+        if (!\is_array($scopes) || !\in_array(UserVerifiedScope::IDENTIFIER, $scopes, true)) {
+            throw ApiException::invalidScopeAccessToken(UserVerifiedScope::IDENTIFIER);
+        }
     }
 
     private function userId(Context $context): string
