@@ -8,7 +8,7 @@ use Shopware\Core\System\SystemConfig\SystemConfigService;
 
 /**
  * Where passkeys are used: the backoffice domain. The relying party id is its host
- * (e.g. backoffice.pizzeria-lafattoria.de), the origins are its full URLs. Without both,
+ * (e.g. backoffice.mein-restaurant.de), the origins are its full URLs. Without both,
  * passkeys are switched off.
  */
 final readonly class PasskeyConfig

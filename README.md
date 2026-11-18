@@ -80,7 +80,7 @@ Install and update create the property groups **Allergene** (the 14 allergens of
 
 People log in to the backoffice with fingerprint or Face ID instead of a password (WebAuthn, `web-auth/webauthn-lib`). The plugin stores the passkeys (table `shopbite_passkey`, linked to the Shopware user) and adds the OAuth grant `shopbite_passkey` to `/api/oauth/token`, which answers like a password login. Routes for the logged-in user: `GET /api/_action/shopbite/passkey`, `POST …/register-options`, `POST …/register`, `DELETE …/{id}`; open: `POST …/login-options`.
 
-Switch it on in the plugin configuration (card "Backoffice passkeys"): **relying party id** = host of the backoffice (e.g. `backoffice.pizzeria-lafattoria.de`), **origins** = its URL(s). Without both, the grant and the routes are off. Passkeys only work on that host; a deactivated user cannot log in with a passkey either.
+Switch it on in the plugin configuration (card "Backoffice passkeys"): **relying party id** = host of the backoffice (e.g. `backoffice.mein-restaurant.de`), **origins** = its URL(s). Without both, the grant and the routes are off. Passkeys only work on that host; a deactivated user cannot log in with a passkey either.
 
 ## "Jetzt drucken"
 

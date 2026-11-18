@@ -31,7 +31,7 @@ class ShopBiteConfigRouteTest extends TestCase
             'addressStreet' => 'Hauptstraße 1',
             'addressPostalCode' => '01067',
             'addressCity' => 'Dresden',
-            'telephone' => '+49 6104 71427',
+            'telephone' => '+49 123 456789',
             'googleBusinessProfileUrl' => 'https://maps.app.goo.gl/abc',
         ]);
 
@@ -40,7 +40,7 @@ class ShopBiteConfigRouteTest extends TestCase
         $this->assertSame('Hauptstraße 1', $config->addressStreet);
         $this->assertSame('01067', $config->addressPostalCode);
         $this->assertSame('Dresden', $config->addressCity);
-        $this->assertSame('+49 6104 71427', $config->telephone);
+        $this->assertSame('+49 123 456789', $config->telephone);
         $this->assertSame('https://maps.app.goo.gl/abc', $config->googleBusinessProfileUrl);
     }
 
@@ -74,7 +74,7 @@ class ShopBiteConfigRouteTest extends TestCase
             'addressStreet' => '  Hauptstraße 1 ',
             'addressPostalCode' => '',
             'addressCity' => '   ',
-            'telephone' => 4961047142,
+            'telephone' => 49123456789,
             'googleBusinessProfileUrl' => null,
         ]);
 
