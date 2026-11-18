@@ -8,27 +8,38 @@ use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use ShopBite\Order\BranchAccessException;
 use ShopBite\Order\OrderBranchFilterSubscriber;
+use ShopBite\Order\OrderFamily;
+use ShopBite\Order\OrderPathGuard;
 use ShopBite\Staff\BranchBinding;
 use Shopware\Core\Checkout\Customer\CustomerDefinition;
 use Shopware\Core\Checkout\Document\DocumentDefinition;
 use Shopware\Core\Checkout\Order\Aggregate\OrderAddress\OrderAddressDefinition;
 use Shopware\Core\Checkout\Order\Aggregate\OrderCustomer\OrderCustomerDefinition;
 use Shopware\Core\Checkout\Order\Aggregate\OrderDelivery\OrderDeliveryDefinition;
+use Shopware\Core\Checkout\Order\Aggregate\OrderDeliveryPosition\OrderDeliveryPositionDefinition;
 use Shopware\Core\Checkout\Order\Aggregate\OrderLineItem\OrderLineItemDefinition;
 use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionDefinition;
+use Shopware\Core\Checkout\Order\Aggregate\OrderTransactionCapture\OrderTransactionCaptureDefinition;
 use Shopware\Core\Checkout\Order\OrderDefinition;
 use Shopware\Core\Framework\Api\Context\AdminApiSource;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\BeforeEntityAggregationEvent;
 use Shopware\Core\Framework\DataAbstractionLayer\Event\EntitySearchedEvent;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Aggregation\Metric\SumAggregation;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsAnyFilter;
 
 #[CoversClass(OrderBranchFilterSubscriber::class)]
+#[CoversClass(OrderFamily::class)]
+#[CoversClass(OrderPathGuard::class)]
+#[CoversClass(BranchAccessException::class)]
 class OrderBranchFilterSubscriberTest extends TestCase
 {
+    use OrderDefinitions;
+
     private const string USER = '0190000000007000800000000000a001';
     private const string BRANCH = '0190000000007000800000000000b001';
 
@@ -52,6 +63,8 @@ class OrderBranchFilterSubscriberTest extends TestCase
         yield 'customer' => [OrderCustomerDefinition::class, 'order.salesChannelId'];
         yield 'address' => [OrderAddressDefinition::class, 'order.salesChannelId'];
         yield 'document' => [DocumentDefinition::class, 'order.salesChannelId'];
+        yield 'delivery position' => [OrderDeliveryPositionDefinition::class, 'orderDelivery.order.salesChannelId'];
+        yield 'transaction capture' => [OrderTransactionCaptureDefinition::class, 'transaction.order.salesChannelId'];
     }
 
     /**
@@ -116,6 +129,74 @@ class OrderBranchFilterSubscriberTest extends TestCase
         });
 
         $this->assertSame([], $criteria->getFilters());
+    }
+
+    public function testSalesChannelWithOrdersIsRefusedForBoundUsers(): void
+    {
+        $criteria = new Criteria()->addAssociation('orders.orderCustomer');
+        $event = new EntitySearchedEvent($criteria, self::registry($this)->getByEntityName('sales_channel'), $this->userContext());
+
+        $this->expectException(BranchAccessException::class);
+        $this->expectExceptionMessage('orders');
+
+        $this->subscriber([self::BRANCH])->onSearch($event);
+    }
+
+    public function testOrderWithTheOrdersOfItsSalesChannelIsRefused(): void
+    {
+        $criteria = new Criteria()->addAssociation('salesChannel.orders');
+        $event = new EntitySearchedEvent($criteria, self::registry($this)->getByEntityName('order'), $this->userContext());
+
+        $this->expectException(BranchAccessException::class);
+
+        $this->subscriber([self::BRANCH])->onSearch($event);
+    }
+
+    public function testAggregationOverOrdersOfAnotherEntityIsRefused(): void
+    {
+        $criteria = new Criteria()->addAggregation(new SumAggregation('sum', 'orders.amountTotal'));
+        $event = new BeforeEntityAggregationEvent($criteria, self::registry($this)->getByEntityName('sales_channel'), $this->userContext());
+
+        $this->expectException(BranchAccessException::class);
+
+        $this->subscriber([self::BRANCH])->onSearch($event);
+    }
+
+    public function testUnboundUserMayUseSuchPaths(): void
+    {
+        $criteria = new Criteria()->addAssociation('orders');
+
+        $this->subscriber(null)->onSearch(
+            new EntitySearchedEvent($criteria, self::registry($this)->getByEntityName('sales_channel'), $this->userContext()),
+        );
+
+        $this->assertSame([], $criteria->getFilters());
+    }
+
+    public function testOrderWithItsOwnPartsIsFiltered(): void
+    {
+        $criteria = new Criteria()->addAssociation('lineItems')->addAssociation('orderCustomer');
+
+        $this->subscriber([self::BRANCH])->onSearch(
+            new EntitySearchedEvent($criteria, self::registry($this)->getByEntityName('order'), $this->userContext()),
+        );
+
+        $this->assertCount(1, $criteria->getFilters());
+    }
+
+    public function testUnreadableBindingSeesNoOrders(): void
+    {
+        $connection = $this->createMock(Connection::class);
+        $connection->method('fetchOne')->willReturn(json_encode(['shopbite_sales_channel_ids' => 'oops']));
+        $criteria = new Criteria();
+
+        new OrderBranchFilterSubscriber(new BranchBinding($connection))->onSearch(
+            new EntitySearchedEvent($criteria, new OrderDefinition(), $this->userContext()),
+        );
+
+        $filter = $criteria->getFilters()[0] ?? null;
+        $this->assertInstanceOf(EqualsAnyFilter::class, $filter);
+        $this->assertSame(['00000000000000000000000000000000'], $filter->getValue());
     }
 
     private function userContext(): Context

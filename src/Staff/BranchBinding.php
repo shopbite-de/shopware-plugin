@@ -13,7 +13,9 @@ use Shopware\Core\Framework\Uuid\Uuid;
 /**
  * The branches (sales channels) an Admin API user is bound to: the user custom field
  * `shopbite_sales_channel_ids`. Null means not restricted: admins, integrations, other
- * sources and users without branches (management without a branch sees all).
+ * sources and users without the field or with an empty list (management without a branch
+ * sees all). A field that is there but unreadable (no list, no valid id, broken JSON) or an
+ * unknown user means no branch at all.
  */
 final readonly class BranchBinding
 {
@@ -23,7 +25,7 @@ final readonly class BranchBinding
     }
 
     /**
-     * @return non-empty-list<string>|null
+     * @return list<string>|null
      */
     public function salesChannelIds(Context $context): ?array
     {
@@ -40,18 +42,34 @@ final readonly class BranchBinding
             'SELECT custom_fields FROM `user` WHERE id = :id',
             ['id' => Uuid::fromHexToBytes($userId)],
         );
-        if (!\is_string($customFields)) {
+        if ($customFields === false) {
+            return [];
+        }
+        if ($customFields === null) {
             return null;
         }
 
         try {
-            $decoded = json_decode($customFields, true, 16, \JSON_THROW_ON_ERROR);
+            $decoded = json_decode((string) $customFields, true, 16, \JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
+            return [];
+        }
+
+        return self::parse(\is_array($decoded) ? ($decoded[CustomFieldsInstaller::SHOPBITE_SALES_CHANNEL_IDS] ?? null) : null);
+    }
+
+    /**
+     * The field value as list of sales channel ids: null when unset or empty, [] when malformed.
+     *
+     * @return list<string>|null
+     */
+    public static function parse(mixed $value): ?array
+    {
+        if ($value === null || $value === []) {
             return null;
         }
-        $value = \is_array($decoded) ? ($decoded[CustomFieldsInstaller::SHOPBITE_SALES_CHANNEL_IDS] ?? null) : null;
         if (!\is_array($value)) {
-            return null;
+            return [];
         }
 
         $ids = [];
@@ -60,9 +78,8 @@ final readonly class BranchBinding
                 $ids[] = strtolower($id);
             }
         }
-        $ids = array_values(array_unique($ids));
 
-        return $ids === [] ? null : $ids;
+        return array_values(array_unique($ids));
     }
 
     /**
@@ -70,8 +87,14 @@ final readonly class BranchBinding
      */
     public function allows(Context $context, string $salesChannelId): bool
     {
-        $ids = $this->salesChannelIds($context);
+        return self::permits($this->salesChannelIds($context), $salesChannelId);
+    }
 
-        return $ids === null || \in_array(strtolower($salesChannelId), $ids, true);
+    /**
+     * @param list<string>|null $salesChannelIds as returned by salesChannelIds()
+     */
+    public static function permits(?array $salesChannelIds, string $salesChannelId): bool
+    {
+        return $salesChannelIds === null || \in_array(strtolower($salesChannelId), $salesChannelIds, true);
     }
 }

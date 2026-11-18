@@ -41,12 +41,36 @@ class BranchBindingTest extends TestCase
     public static function unboundUsers(): iterable
     {
         yield 'no custom fields' => [null];
-        yield 'unknown user' => [false];
         yield 'other custom fields' => [json_encode(['other' => true]) ?: null];
+        yield 'field null' => [json_encode(['shopbite_sales_channel_ids' => null]) ?: null];
         yield 'empty list' => [json_encode(['shopbite_sales_channel_ids' => []]) ?: null];
-        yield 'no list' => [json_encode(['shopbite_sales_channel_ids' => self::BRANCH_A]) ?: null];
-        yield 'only invalid entries' => [json_encode(['shopbite_sales_channel_ids' => ['x']]) ?: null];
+    }
+
+    /**
+     * @return iterable<string, array{string|false}>
+     */
+    public static function malformedBindings(): iterable
+    {
+        yield 'unknown user' => [false];
+        yield 'scalar' => [json_encode(['shopbite_sales_channel_ids' => self::BRANCH_A]) ?: ''];
+        yield 'only invalid entries' => [json_encode(['shopbite_sales_channel_ids' => ['x', 42]]) ?: ''];
         yield 'broken json' => ['{'];
+    }
+
+    #[DataProvider('malformedBindings')]
+    public function testMalformedBindingAllowsNoBranch(string|false $customFields): void
+    {
+        $binding = $this->binding($customFields);
+
+        $this->assertSame([], $binding->salesChannelIds($this->userContext()));
+    }
+
+    public function testAllowsChecksTheBranches(): void
+    {
+        $this->assertTrue(BranchBinding::permits(null, self::BRANCH_A));
+        $this->assertTrue(BranchBinding::permits([self::BRANCH_A], strtoupper(self::BRANCH_A)));
+        $this->assertFalse(BranchBinding::permits([self::BRANCH_A], self::BRANCH_B));
+        $this->assertFalse(BranchBinding::permits([], self::BRANCH_A));
     }
 
     #[DataProvider('unboundUsers')]

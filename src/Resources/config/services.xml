@@ -69,6 +69,19 @@
             <argument type="service" id="ShopBite\Staff\BranchBinding"/>
             <tag name="kernel.event_subscriber"/>
         </service>
+        <service id="ShopBite\Order\OrderSalesChannelResolver">
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
+        </service>
+        <service id="ShopBite\Order\OrderBranchWriteSubscriber">
+            <argument type="service" id="ShopBite\Staff\BranchBinding"/>
+            <argument type="service" id="ShopBite\Order\OrderSalesChannelResolver"/>
+            <tag name="kernel.event_subscriber"/>
+        </service>
+        <service id="ShopBite\Order\OrderBranchRouteSubscriber">
+            <argument type="service" id="ShopBite\Staff\BranchBinding"/>
+            <argument type="service" id="ShopBite\Order\OrderSalesChannelResolver"/>
+            <tag name="kernel.event_subscriber"/>
+        </service>
 
         <!-- Passkeys for the backoffice (WebAuthn, grant_type=shopbite_passkey) -->
         <service id="ShopBite\Passkey\PasskeyConfig">
