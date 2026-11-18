@@ -58,8 +58,10 @@ final class OrderPathGuard
      */
     private static function walkPath(EntityDefinition $definition, string $path, bool $inFamily): bool
     {
-        $parts = explode('.', $path);
-        if (\count($parts) > 1 && $parts[0] === $definition->getEntityName() && !$definition->getFields()->has($parts[0])) {
+        // Normalised like EntityDefinitionQueryHelper::getFieldsOfAccessor(): `extensions`
+        // segments are dropped, a leading entity name is stripped.
+        $parts = array_values(array_filter(explode('.', $path), static fn (string $part): bool => $part !== 'extensions'));
+        if (($parts[0] ?? null) === $definition->getEntityName()) {
             array_shift($parts);
         }
 

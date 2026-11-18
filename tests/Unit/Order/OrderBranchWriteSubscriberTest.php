@@ -21,11 +21,13 @@ use Shopware\Core\Framework\DataAbstractionLayer\Write\Command\InsertCommand;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\Command\UpdateCommand;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\Command\WriteCommand;
 use Shopware\Core\Framework\DataAbstractionLayer\Write\WriteContext;
+use Shopware\Core\Framework\Routing\KernelListenerPriorities;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\PlatformRequest;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Event\ControllerEvent;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
+use Symfony\Component\HttpKernel\KernelEvents;
 
 #[CoversClass(OrderBranchWriteSubscriber::class)]
 #[CoversClass(OrderBranchRouteSubscriber::class)]
@@ -131,6 +133,40 @@ class OrderBranchWriteSubscriberTest extends TestCase
         $this->expectException(BranchAccessException::class);
 
         $this->route(['entityName' => 'order_delivery', 'entityId' => self::OTHER_DELIVERY, 'transition' => 'ship']);
+    }
+
+    public function testNewOrderWithItsPartsInOneWritePasses(): void
+    {
+        $order = '0190000000007000800000000000c00a';
+        $delivery = '0190000000007000800000000000e00a';
+        $this->write([
+            $this->command(InsertCommand::class, 'order', ['id' => $order], ['sales_channel_id' => Uuid::fromHexToBytes(self::OWN)]),
+            $this->command(InsertCommand::class, 'order_line_item', ['id' => '0190000000007000800000000000d00a'], ['order_id' => Uuid::fromHexToBytes($order)]),
+            $this->command(InsertCommand::class, 'order_delivery', ['id' => $delivery], ['order_id' => Uuid::fromHexToBytes($order)]),
+            $this->command(InsertCommand::class, 'order_delivery_position', ['id' => '0190000000007000800000000000f00a'], ['order_delivery_id' => Uuid::fromHexToBytes($delivery)]),
+        ]);
+        $this->addToAssertionCount(1);
+    }
+
+    public function testNewOrderOfAnotherBranchWithItsPartsIsRefused(): void
+    {
+        $order = '0190000000007000800000000000c00b';
+        $this->expectException(BranchAccessException::class);
+
+        $this->write([
+            $this->command(InsertCommand::class, 'order_line_item', ['id' => '0190000000007000800000000000d00b'], ['order_id' => Uuid::fromHexToBytes($order)]),
+            $this->command(InsertCommand::class, 'order', ['id' => $order], ['sales_channel_id' => Uuid::fromHexToBytes(self::OTHER)]),
+        ]);
+    }
+
+    public function testRouteCheckRunsAfterTheContextIsResolved(): void
+    {
+        // Shopware sets the request's context in ContextResolverListener at this priority.
+        $events = OrderBranchRouteSubscriber::getSubscribedEvents();
+        $listener = $events[KernelEvents::CONTROLLER];
+        static::assertIsArray($listener);
+        static::assertSame('onController', $listener[0]);
+        static::assertLessThan(KernelListenerPriorities::KERNEL_CONTROLLER_EVENT_CONTEXT_RESOLVE, $listener[1]);
     }
 
     public function testOwnOrderRoutesAndOtherRoutesPass(): void
