@@ -71,7 +71,7 @@
             <name>telephone</name>
             <label>Telephone</label>
             <label lang="de-DE">Telefon</label>
-            <placeholder>+49 6104 71427</placeholder>
+            <placeholder>+49 123 456789</placeholder>
             <helpText>Shown as entered. Customers can call it directly from the storefront.</helpText>
             <helpText lang="de-DE">Wird so angezeigt, wie eingegeben. Kunden können direkt aus der Storefront anrufen.</helpText>
         </input-field>
@@ -93,7 +93,7 @@
             <name>passkeyRpId</name>
             <label>Relying party id (backoffice host)</label>
             <label lang="de-DE">Relying-Party-ID (Host des Backoffice)</label>
-            <placeholder>backoffice.pizzeria-lafattoria.de</placeholder>
+            <placeholder>backoffice.mein-restaurant.de</placeholder>
             <helpText>Host name of the ShopBite backoffice, without https://. Passkeys only work on this host. Empty = passkeys off.</helpText>
             <helpText lang="de-DE">Hostname des ShopBite Backoffice ohne https://. Passkeys funktionieren nur unter diesem Host. Leer = aus.</helpText>
         </input-field>
@@ -102,7 +102,7 @@
             <name>passkeyOrigins</name>
             <label>Allowed origins</label>
             <label lang="de-DE">Erlaubte Origins</label>
-            <placeholder>https://backoffice.pizzeria-lafattoria.de</placeholder>
+            <placeholder>https://backoffice.mein-restaurant.de</placeholder>
             <helpText>Full URL(s) of the backoffice, comma separated.</helpText>
             <helpText lang="de-DE">Vollständige URL(s) des Backoffice, durch Komma getrennt.</helpText>
         </input-field>

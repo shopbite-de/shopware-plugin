@@ -350,7 +350,7 @@
           "telephone": {
             "type": "string",
             "nullable": true,
-            "description": "Telephone number in display format (e.g. +49 6104 71427), null if not configured"
+            "description": "Telephone number in display format (e.g. +49 123 456789), null if not configured"
           },
           "googleBusinessProfileUrl": {
             "type": "string",
