@@ -66,6 +66,31 @@ class RestaurantSettingsTest extends TestCase
         );
     }
 
+    /**
+     * @return iterable<string, array{mixed, bool}>
+     */
+    public static function orderingValues(): iterable
+    {
+        yield 'unset' => [null, true];
+        yield 'true' => [true, true];
+        yield 'false' => [false, false];
+        yield 'string false (bin/console system:config:set)' => ['false', false];
+        yield 'string 0' => ['0', false];
+        yield 'int 0' => [0, false];
+        yield 'string 1' => ['1', true];
+        yield 'unknown value' => ['maybe', true];
+    }
+
+    #[DataProvider('orderingValues')]
+    public function testOrderingOpenIsReadLikeTheStorefrontConfig(mixed $stored, bool $open): void
+    {
+        $this->systemConfig->method('get')->willReturnCallback(
+            static fn (string $key): mixed => $key === RestaurantSettings::ORDERING_OPEN ? $stored : null,
+        );
+
+        static::assertSame($open, new RestaurantSettings($this->systemConfig)->read(self::CHANNEL, self::NAVIGATION)['orderingOpen']);
+    }
+
     public function testListsEverySalesChannel(): void
     {
         $this->channelExists(true);

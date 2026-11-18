@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace ShopBite\Settings;
 
+use function Psl\Type\bool;
+
+use Psl\Type\Exception\CoercionException;
+
 use function Psl\Type\int;
 
 use Shopware\Core\System\SystemConfig\SystemConfigService;
@@ -49,11 +53,23 @@ final readonly class RestaurantSettings
         $minutes = int()->matches($minutes) || (\is_string($minutes) && ctype_digit($minutes)) ? (int) $minutes : 0;
 
         return [
-            // unset means open, like the plugin default
-            'orderingOpen' => $this->systemConfig->get(self::ORDERING_OPEN, $salesChannelId) !== false,
+            'orderingOpen' => self::isOpen($this->systemConfig->get(self::ORDERING_OPEN, $salesChannelId)),
             'deliveryMinutes' => $minutes >= self::MIN_DELIVERY_MINUTES ? $minutes : null,
             'menuCategoryId' => self::menuCategoryId($this->systemConfig->get(self::MENU_CATEGORY, $salesChannelId), $navigationCategoryId),
         ];
+    }
+
+    /**
+     * Read like /store-api/shopbite/config does (bool coercion, so "false" and "0" mean
+     * paused); unset or unreadable means open, like the plugin default.
+     */
+    private static function isOpen(mixed $value): bool
+    {
+        try {
+            return $value === null || bool()->coerce($value);
+        } catch (CoercionException) {
+            return true;
+        }
     }
 
     /**
