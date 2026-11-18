@@ -10,6 +10,11 @@
             <tag name="shopware.cart.line_item.factory"/>
         </service>
 
+        <!-- Label and payload of dishes from the products, after Shopware's product collector (5000) -->
+        <service id="ShopBite\Checkout\Cart\Dish\DishLineItemCollector">
+            <tag name="shopware.cart.collector" priority="4900"/>
+        </service>
+
         <service id="ShopBite\Config\SalesChannel\ShopBiteConfigRoute">
             <argument key="$systemConfigService" type="service" id="Shopware\Core\System\SystemConfig\SystemConfigService" />
             <tag name="controller.service_arguments"/>

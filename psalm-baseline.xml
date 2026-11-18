@@ -25,11 +25,6 @@
       <code><![CDATA[getBusinessHours]]></code>
     </PossiblyUnusedMethod>
   </file>
-  <file src="src/Checkout/Cart/LineItemFactoryHandler/ContainerLineItemFactory.php">
-    <UnusedClass>
-      <code><![CDATA[ContainerLineItemFactory]]></code>
-    </UnusedClass>
-  </file>
   <file src="src/Checkout/Cart/ReceiptPrintTypeProcessor.php">
     <UnusedClass>
       <code><![CDATA[ReceiptPrintTypeProcessor]]></code>
