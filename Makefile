@@ -38,9 +38,10 @@ install-shopware:
 	$(CONTAINER) bin/console system:install -f
 
 install-plugin:
-	$(CONTAINER) composer req shopbite-de/shopware-plugin:dev-main
+	$(CONTAINER) composer req shopbite-de/shopware-plugin:dev-main --with-all-dependencies
 
 activate-plugin:
-	$(CONTAINER) bin/console plugin:install --refresh --clearCache --activate --reinstall ShopBitePlugin
+	$(CONTAINER) bin/console plugin:refresh
+	$(CONTAINER) bin/console plugin:install --clearCache --activate --reinstall ShopBitePlugin
 
 init: install-shopware install-plugin activate-plugin
