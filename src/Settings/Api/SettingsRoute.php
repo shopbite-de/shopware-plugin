@@ -6,6 +6,8 @@ namespace ShopBite\Settings\Api;
 
 use Doctrine\DBAL\Connection;
 use ShopBite\Settings\RestaurantSettings;
+use ShopBite\Staff\BranchBinding;
+use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\PlatformRequest;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -16,7 +18,8 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Admin API for the backoffice: the restaurant settings of the sales channels, guarded by the
  * plugin's own privileges shopbite_settings:read / shopbite_settings:update instead of write
- * access to the whole system configuration (plugin#34).
+ * access to the whole system configuration (plugin#34). Users bound to branches (user custom
+ * field shopbite_sales_channel_ids, see BranchBinding) see and change only these sales channels.
  *
  * @psalm-api Registered through routes.xml
  */
@@ -30,6 +33,7 @@ final readonly class SettingsRoute
     public function __construct(
         private RestaurantSettings $settings,
         private Connection $connection,
+        private BranchBinding $branchBinding,
     ) {
     }
 
@@ -45,10 +49,14 @@ final readonly class SettingsRoute
         defaults: ['_acl' => [self::READ_PRIVILEGE]],
         methods: ['GET'],
     )]
-    public function list(): JsonResponse
+    public function list(Context $context): JsonResponse
     {
+        $allowed = $this->branchBinding->salesChannelIds($context);
         $channels = [];
         foreach ($this->navigationCategories() as $id => $navigationCategoryId) {
+            if ($allowed !== null && !\in_array($id, $allowed, true)) {
+                continue;
+            }
             $channels[$id] = $this->settings->read($id, $navigationCategoryId);
         }
 
@@ -63,8 +71,11 @@ final readonly class SettingsRoute
         defaults: ['_acl' => [self::READ_PRIVILEGE]],
         methods: ['GET'],
     )]
-    public function read(string $salesChannelId): JsonResponse
+    public function read(string $salesChannelId, Context $context): JsonResponse
     {
+        if (!$this->branchBinding->allows($context, $salesChannelId)) {
+            return $this->forbidden();
+        }
         $navigationCategoryId = $this->navigationCategories($salesChannelId)[$salesChannelId] ?? null;
         if ($navigationCategoryId === null) {
             return $this->error(Response::HTTP_NOT_FOUND, 'Sales channel not found.');
@@ -81,8 +92,11 @@ final readonly class SettingsRoute
         defaults: ['_acl' => [self::UPDATE_PRIVILEGE]],
         methods: ['PATCH'],
     )]
-    public function update(string $salesChannelId, Request $request): JsonResponse
+    public function update(string $salesChannelId, Request $request, Context $context): JsonResponse
     {
+        if (!$this->branchBinding->allows($context, $salesChannelId)) {
+            return $this->forbidden();
+        }
         $navigationCategoryId = $this->navigationCategories($salesChannelId)[$salesChannelId] ?? null;
         if ($navigationCategoryId === null) {
             return $this->error(Response::HTTP_NOT_FOUND, 'Sales channel not found.');
@@ -110,6 +124,11 @@ final readonly class SettingsRoute
             : $this->connection->fetchAllAssociative($sql . ' WHERE id = :id', ['id' => Uuid::fromHexToBytes($salesChannelId)]);
 
         return array_column($rows, 'navigation', 'id');
+    }
+
+    private function forbidden(): JsonResponse
+    {
+        return $this->error(Response::HTTP_FORBIDDEN, 'This sales channel is not one of your branches.');
     }
 
     private function error(int $status, string $detail): JsonResponse

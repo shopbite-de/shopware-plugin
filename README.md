@@ -70,7 +70,7 @@ bin/console shopbite:staff:update counter --branch=<salesChannelId> | --role=...
 bin/console shopbite:staff:list
 ```
 
-Staff need at least one branch; management without a branch sees all. Branches are stored in the user custom field `shopbite_sales_channel_ids` (custom field set `shopbite_user_set`). Like the order printer role, the staff roles are reset on update and removed on uninstall without *keep user data*.
+Staff need at least one branch; management without a branch sees all. Branches are stored in the user custom field `shopbite_sales_channel_ids` (custom field set `shopbite_user_set`). The plugin enforces the binding in the Admin API: the restaurant settings route (`/api/_action/shopbite/settings`) answers 403 for other sales channels and lists only the user's own, and searches on orders (and their line items, deliveries, transactions, customers, addresses and documents) return only orders of the user's branches. Admins, integrations and users without a branch are not restricted. Like the order printer role, the staff roles are reset on update and removed on uninstall without *keep user data*.
 
 ## Allergens and additives
 
