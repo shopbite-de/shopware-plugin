@@ -64,7 +64,7 @@ final readonly class SettingsRoute
             if (!BranchBinding::permits($allowed, $id)) {
                 continue;
             }
-            $channels[$id] = $this->readChannel($id, $navigationCategoryId, $context);
+            $channels[$id] = $this->readChannel($id, $navigationCategoryId, $context, $allowed);
         }
 
         return new JsonResponse(['channels' => (object) $channels]);
@@ -88,7 +88,7 @@ final readonly class SettingsRoute
             return $this->error(Response::HTTP_NOT_FOUND, 'Sales channel not found.');
         }
 
-        return new JsonResponse($this->readChannel($salesChannelId, $navigationCategoryId, $context));
+        return new JsonResponse($this->readChannel($salesChannelId, $navigationCategoryId, $context, $this->branchBinding->salesChannelIds($context)));
     }
 
     /** @psalm-suppress PossiblyUnusedMethod */
@@ -117,19 +117,24 @@ final readonly class SettingsRoute
         if ($refused !== null) {
             return $refused;
         }
-        $this->settings->write($salesChannelId, $changes);
-        $this->leadTimes->write($leadTimes);
+        // One transaction, so a failing lead time write does not leave the ordering switch changed.
+        $this->connection->transactional(function () use ($salesChannelId, $changes, $leadTimes): void {
+            $this->settings->write($salesChannelId, $changes);
+            $this->leadTimes->write($leadTimes);
+        });
 
-        return new JsonResponse($this->readChannel($salesChannelId, $navigationCategoryId, $context));
+        return new JsonResponse($this->readChannel($salesChannelId, $navigationCategoryId, $context, $this->branchBinding->salesChannelIds($context)));
     }
 
     /**
-     * @return array{orderingOpen: bool, menuCategoryId: string, shippingMethods: list<array{id: string, name: string, fulfillment: string, leadTimeMinutes: int, leadTimeMinutesSet: bool}>}
+     * @param list<string>|null $allowed the user's branches, see BranchBinding
+     *
+     * @return array{orderingOpen: bool, menuCategoryId: string, shippingMethods: list<array{id: string, name: string, fulfillment: string, leadTimeMinutes: int, leadTimeMinutesSet: bool, editable: bool}>}
      */
-    private function readChannel(string $salesChannelId, string $navigationCategoryId, Context $context): array
+    private function readChannel(string $salesChannelId, string $navigationCategoryId, Context $context, ?array $allowed): array
     {
         return $this->settings->read($salesChannelId, $navigationCategoryId)
-            + ['shippingMethods' => $this->leadTimes->backoffice($salesChannelId, $context)];
+            + ['shippingMethods' => $this->leadTimes->backoffice($salesChannelId, $context, $allowed)];
     }
 
     /**
@@ -151,13 +156,11 @@ final readonly class SettingsRoute
         }
         $allowed = $this->branchBinding->salesChannelIds($context);
         foreach ($channelsByMethod as $shippingMethodId => $salesChannelIds) {
-            foreach ($salesChannelIds as $id) {
-                if (!BranchBinding::permits($allowed, $id)) {
-                    return $this->error(
-                        Response::HTTP_FORBIDDEN,
-                        \sprintf('Shipping method %s is also used by a sales channel that is not one of your branches.', $shippingMethodId),
-                    );
-                }
+            if (!ShippingMethodLeadTimes::editable($salesChannelIds, $allowed)) {
+                return $this->error(
+                    Response::HTTP_FORBIDDEN,
+                    \sprintf('Shipping method %s is also used by a sales channel that is not one of your branches.', $shippingMethodId),
+                );
             }
         }
 

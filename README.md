@@ -68,13 +68,13 @@ Ordering on/off and the lead times go through `GET/PATCH /api/_action/shopbite/s
   "orderingOpen": true,
   "menuCategoryId": "<id>",
   "shippingMethods": [
-    {"id": "<id>", "name": "Lieferung", "fulfillment": "delivery", "leadTimeMinutes": 45, "leadTimeMinutesSet": true},
-    {"id": "<id>", "name": "Abholung", "fulfillment": "pickup", "leadTimeMinutes": 30, "leadTimeMinutesSet": false}
+    {"id": "<id>", "name": "Lieferung", "fulfillment": "delivery", "leadTimeMinutes": 45, "leadTimeMinutesSet": true, "editable": true},
+    {"id": "<id>", "name": "Abholung", "fulfillment": "pickup", "leadTimeMinutes": 30, "leadTimeMinutesSet": false, "editable": false}
   ]
 }
 ```
 
-`orderingOpen` is the channel value with the global value as fallback, `menuCategoryId` the menu root from the plugin configuration (per sales channel, else its navigation category, also returned by `/store-api/shopbite/config`), `shippingMethods` the channel's active shipping methods (see [Delivery and pickup](#delivery-and-pickup); `leadTimeMinutesSet: false` = the default of 30 minutes applies). `PATCH` accepts `{"orderingOpen"?: bool, "leadTimes"?: {"<shippingMethodId>": minutes}}` (minutes 1 to 1440, only shipping methods assigned to this sales channel, else 400) and answers with the new read. A lead time is stored on the shipping method, so it changes for **every** sales channel that uses the method.
+`orderingOpen` is the channel value with the global value as fallback, `menuCategoryId` the menu root from the plugin configuration (per sales channel, else its navigation category, also returned by `/store-api/shopbite/config`), `shippingMethods` the channel's active shipping methods (see [Delivery and pickup](#delivery-and-pickup); `leadTimeMinutesSet: false` = the default of 30 minutes applies; `editable` = the requesting user may change the lead time, i.e. not bound to branches or every sales channel of the method is one of their branches). `PATCH` accepts `{"orderingOpen"?: bool, "leadTimes"?: {"<shippingMethodId>": minutes}}` (minutes 1 to 1440, only shipping methods assigned to this sales channel, else 400) and answers with the new read; ordering switch and lead times are written in one transaction. A lead time is stored on the shipping method (in every translation of it, because custom fields are translated), so it changes for **every** sales channel that uses the method.
 
 Accounts are managed on the command line (`--help` on each command):
 
@@ -96,7 +96,7 @@ A shop has a shipping method for delivery and one for pickup. Each carries two c
 | `shopbite_fulfillment` | select `delivery` \| `pickup` | `delivery` |
 | `shopbite_lead_time_minutes` | int, 1 to 1440: minutes until delivered or ready for pickup | 30 |
 
-Nothing else is read: the name of a method does not matter at runtime. The plugin update that introduced the fields filled them once for existing shipping methods (pickup when the technical name or a name contains "abhol", "pickup" or "selbst", else delivery; the lead time from the former plugin setting *Default Delivery Time*, which is gone), only where they were empty.
+Nothing else is read: the name of a method does not matter at runtime. The plugin update that introduced the fields filled them once for existing shipping methods, only where a value was empty or invalid: pickup when the technical name or a name contains "abhol", "pickup" or "selbst", else delivery; the lead time from the former plugin setting *Default Delivery Time* (the values set on the method's sales channels when they agree, else the global value, else 30). The values are written into every translation of the method, and the former setting is deleted.
 
 `/store-api/shopbite/config` returns the active shipping methods of the sales channel:
 

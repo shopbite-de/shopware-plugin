@@ -12,12 +12,14 @@ use Shopware\Core\Framework\Migration\MigrationStep;
 use Shopware\Core\Framework\Uuid\Uuid;
 
 /**
- * One-time data migration for the lead time per shipping method: fills the custom fields
- * shopbite_fulfillment (pickup when the technical name or a name contains "abhol", "pickup" or
- * "selbst", else delivery) and shopbite_lead_time_minutes (the former plugin setting
- * defaultDeliveryTime: the channel value when all channels of the method agree, else the global
- * value, else 30) of every shipping method, only where a field is empty or invalid. Written into
- * the system language translation, which all other languages fall back to.
+ * One-time data migration for the lead time per shipping method. Where the custom field of the
+ * system language translation is empty or invalid, it fills shopbite_fulfillment (pickup when the
+ * technical name or a name contains "abhol", "pickup" or "selbst", else delivery) and
+ * shopbite_lead_time_minutes (the former plugin setting defaultDeliveryTime: the channel values
+ * set explicitly on channels of the method when they agree, else the global value, else 30); valid
+ * values stay. The resulting values are written into every translation of the method, because the
+ * channel language's custom fields win over the system language's. Finally the former setting is
+ * deleted from the system configuration.
  *
  * @psalm-api registered by Shopware's migration collection
  */
@@ -47,7 +49,8 @@ final class Migration1795564800ShippingMethodFulfillment extends MigrationStep
         }
 
         $names = [];
-        $systemCustomFields = [];
+        /** @var array<string, array<string, array<array-key, mixed>|null>> $customFields by method and language */
+        $customFields = [];
         foreach ($connection->fetchAllAssociative(
             'SELECT LOWER(HEX(shipping_method_id)) AS id, LOWER(HEX(language_id)) AS language_id, name, custom_fields FROM shipping_method_translation',
         ) as $row) {
@@ -55,37 +58,47 @@ final class Migration1795564800ShippingMethodFulfillment extends MigrationStep
             if (\is_string($row['name']) && $row['name'] !== '') {
                 $names[$id][] = $row['name'];
             }
-            if ($row['language_id'] === Defaults::LANGUAGE_SYSTEM) {
-                $systemCustomFields[$id] = self::decode($row['custom_fields']);
-            }
+            $customFields[$id][(string) $row['language_id']] = self::decode($row['custom_fields']);
         }
 
         foreach ($connection->fetchAllAssociative(
             'SELECT LOWER(HEX(id)) AS id, technical_name FROM shipping_method',
         ) as $row) {
             $id = (string) $row['id'];
-            if (!\array_key_exists($id, $systemCustomFields)) {
+            $translations = $customFields[$id] ?? [];
+            if (!\array_key_exists(Defaults::LANGUAGE_SYSTEM, $translations)) {
                 continue;
             }
-            $current = $systemCustomFields[$id];
             $filled = self::backfill(
-                $current,
+                $translations[Defaults::LANGUAGE_SYSTEM],
                 (string) $row['technical_name'],
                 $names[$id] ?? [],
                 self::minutes($channelsByMethod[$id] ?? [], $channelValues, $global),
             );
-            if ($filled === $current) {
-                continue;
+            $values = [
+                CustomFieldsInstaller::SHOPBITE_FULFILLMENT => $filled[CustomFieldsInstaller::SHOPBITE_FULFILLMENT],
+                CustomFieldsInstaller::SHOPBITE_LEAD_TIME_MINUTES => $filled[CustomFieldsInstaller::SHOPBITE_LEAD_TIME_MINUTES],
+            ];
+            foreach ($translations as $languageId => $current) {
+                $updated = $current ?? [];
+                foreach ($values as $key => $value) {
+                    $updated[$key] = $value;
+                }
+                if ($updated === $current) {
+                    continue;
+                }
+                $connection->executeStatement(
+                    'UPDATE shipping_method_translation SET custom_fields = :customFields WHERE shipping_method_id = :id AND language_id = :language',
+                    [
+                        'customFields' => json_encode($updated, \JSON_THROW_ON_ERROR),
+                        'id' => Uuid::fromHexToBytes($id),
+                        'language' => Uuid::fromHexToBytes($languageId),
+                    ],
+                );
             }
-            $connection->executeStatement(
-                'UPDATE shipping_method_translation SET custom_fields = :customFields WHERE shipping_method_id = :id AND language_id = :language',
-                [
-                    'customFields' => json_encode($filled, \JSON_THROW_ON_ERROR),
-                    'id' => Uuid::fromHexToBytes($id),
-                    'language' => Uuid::fromHexToBytes(Defaults::LANGUAGE_SYSTEM),
-                ],
-            );
         }
+
+        $connection->executeStatement('DELETE FROM system_config WHERE configuration_key = :key', ['key' => self::DELIVERY_TIME_KEY]);
     }
 
     /**
@@ -114,8 +127,8 @@ final class Migration1795564800ShippingMethodFulfillment extends MigrationStep
     }
 
     /**
-     * The former delivery time for a method: the channel value (else the global value) when all
-     * its channels agree, else the global value, else 30.
+     * The former delivery time for a method: the values set explicitly on its channels when they
+     * agree (channels without their own value do not count), else the global value, else 30.
      *
      * @param list<string>              $salesChannelIds
      * @param array<string, int|null>   $channelValues   valid channel values by sales channel id
@@ -124,7 +137,9 @@ final class Migration1795564800ShippingMethodFulfillment extends MigrationStep
     {
         $values = [];
         foreach ($salesChannelIds as $salesChannelId) {
-            $values[] = $channelValues[$salesChannelId] ?? $global;
+            if (isset($channelValues[$salesChannelId])) {
+                $values[] = $channelValues[$salesChannelId];
+            }
         }
         $values = array_values(array_unique($values, \SORT_REGULAR));
         $minutes = \count($values) === 1 ? $values[0] : $global;

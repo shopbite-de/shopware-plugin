@@ -14,6 +14,7 @@ use ShopBite\Fulfillment\ShippingMethodFulfillment;
 use ShopBite\Fulfillment\ShippingMethodLeadTimes;
 use Shopware\Core\Checkout\Shipping\ShippingMethodCollection;
 use Shopware\Core\Checkout\Shipping\ShippingMethodEntity;
+use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
@@ -65,13 +66,30 @@ class ShippingMethodLeadTimesTest extends TestCase
 
     public function testBackofficeGetsNamesAndWhetherTheLeadTimeIsSet(): void
     {
-        $methods = $this->service()->backoffice(self::CHANNEL, Context::createDefaultContext());
+        $this->connection->expects($this->never())->method('fetchAllAssociative');
+
+        $methods = $this->service()->backoffice(self::CHANNEL, Context::createDefaultContext(), null);
 
         $this->assertSame([
-            ['id' => self::DELIVERY, 'name' => 'Lieferung', 'fulfillment' => 'delivery', 'leadTimeMinutes' => 45, 'leadTimeMinutesSet' => true],
-            ['id' => self::PICKUP, 'name' => 'Abholung', 'fulfillment' => 'pickup', 'leadTimeMinutes' => 30, 'leadTimeMinutesSet' => false],
+            ['id' => self::DELIVERY, 'name' => 'Lieferung', 'fulfillment' => 'delivery', 'leadTimeMinutes' => 45, 'leadTimeMinutesSet' => true, 'editable' => true],
+            ['id' => self::PICKUP, 'name' => 'Abholung', 'fulfillment' => 'pickup', 'leadTimeMinutes' => 30, 'leadTimeMinutesSet' => false, 'editable' => true],
         ], $methods);
         $this->assertFiltersActiveMethodsOfTheChannel();
+    }
+
+    public function testBoundUserMayEditOnlyMethodsUsedByTheirBranchesAlone(): void
+    {
+        $this->connection->method('fetchAllAssociative')->willReturn([
+            ['shipping_method_id' => self::DELIVERY, 'sales_channel_id' => self::CHANNEL],
+            ['shipping_method_id' => self::DELIVERY, 'sales_channel_id' => self::OTHER_CHANNEL],
+            ['shipping_method_id' => self::PICKUP, 'sales_channel_id' => self::CHANNEL],
+        ]);
+
+        $methods = $this->service()->backoffice(self::CHANNEL, Context::createDefaultContext(), [self::CHANNEL]);
+        $this->assertSame([false, true], array_column($methods, 'editable'));
+
+        $methods = $this->service()->backoffice(self::CHANNEL, Context::createDefaultContext(), [self::CHANNEL, self::OTHER_CHANNEL]);
+        $this->assertSame([true, true], array_column($methods, 'editable'));
     }
 
     public function testSalesChannelsOfShippingMethods(): void
@@ -101,12 +119,31 @@ class ShippingMethodLeadTimesTest extends TestCase
         $this->assertSame([], $this->service()->salesChannelIds([]));
     }
 
-    public function testWritesTheLeadTimeCustomFieldOnly(): void
+    public function testWritesTheLeadTimeIntoEveryTranslationOfTheMethod(): void
     {
+        // Custom fields are translated and the channel language wins over the system language,
+        // so a value in any other translation would shadow the change.
+        $german = '0190000000007000800000000000e001';
+        $this->connection->expects($this->once())->method('fetchAllAssociative')
+            ->with(
+                $this->stringContains('shipping_method_translation'),
+                ['ids' => [Uuid::fromHexToBytes(self::DELIVERY), Uuid::fromHexToBytes(self::PICKUP)]],
+                ['ids' => \Doctrine\DBAL\ArrayParameterType::BINARY],
+            )
+            ->willReturn([
+                ['shipping_method_id' => self::DELIVERY, 'language_id' => Defaults::LANGUAGE_SYSTEM],
+                ['shipping_method_id' => self::DELIVERY, 'language_id' => $german],
+                ['shipping_method_id' => self::PICKUP, 'language_id' => Defaults::LANGUAGE_SYSTEM],
+            ]);
         $this->repository->expects($this->once())->method('update')->with(
             [
-                ['id' => self::DELIVERY, 'customFields' => ['shopbite_lead_time_minutes' => 50]],
-                ['id' => self::PICKUP, 'customFields' => ['shopbite_lead_time_minutes' => 15]],
+                ['id' => self::DELIVERY, 'translations' => [
+                    Defaults::LANGUAGE_SYSTEM => ['customFields' => ['shopbite_lead_time_minutes' => 50]],
+                    $german => ['customFields' => ['shopbite_lead_time_minutes' => 50]],
+                ]],
+                ['id' => self::PICKUP, 'translations' => [
+                    Defaults::LANGUAGE_SYSTEM => ['customFields' => ['shopbite_lead_time_minutes' => 15]],
+                ]],
             ],
             $this->isInstanceOf(Context::class),
         );
