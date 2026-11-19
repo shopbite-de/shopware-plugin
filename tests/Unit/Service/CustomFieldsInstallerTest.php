@@ -37,13 +37,14 @@ class CustomFieldsInstallerTest extends TestCase
         $this->customFieldSetRepository->expects($this->once())
             ->method('upsert')
             ->with($this->callback(function (array $data) {
-                if (count($data) !== 5) {
+                if (count($data) !== 6) {
                     return false;
                 }
 
                 $productSet = null;
                 $categorySet = null;
                 $userSet = null;
+                $shippingSet = null;
 
                 foreach ($data as $set) {
                     if ($set['name'] === 'shopbite_product_set') {
@@ -52,10 +53,21 @@ class CustomFieldsInstallerTest extends TestCase
                         $categorySet = $set;
                     } elseif ($set['name'] === 'shopbite_user_set') {
                         $userSet = $set;
+                    } elseif ($set['name'] === 'shopbite_shipping_method_set') {
+                        $shippingSet = $set;
                     }
                 }
 
-                if (!$productSet || !$categorySet || !$userSet) {
+                if (!$productSet || !$categorySet || !$userSet || !$shippingSet) {
+                    return false;
+                }
+                // fulfillment and lead time per shipping method
+                $shippingFields = array_column($shippingSet['customFields'], null, 'name');
+                if ($shippingFields['shopbite_fulfillment']['type'] !== 'select'
+                    || array_column($shippingFields['shopbite_fulfillment']['config']['options'], 'value') !== ['delivery', 'pickup']
+                    || $shippingFields['shopbite_lead_time_minutes']['type'] !== 'int'
+                    || $shippingFields['shopbite_lead_time_minutes']['config']['min'] !== 1
+                    || $shippingFields['shopbite_lead_time_minutes']['config']['max'] !== 1440) {
                     return false;
                 }
                 // backoffice branch binding: list of sales channel ids
@@ -103,11 +115,12 @@ class CustomFieldsInstallerTest extends TestCase
         $this->customFieldSetRepository->method('search')->willReturn($this->createSearchResult([
             $this->createFieldSetMock('fieldset-product-id', 'shopbite_product_set'),
             $this->createFieldSetMock('fieldset-category-id', 'shopbite_category_set'),
+            $this->createFieldSetMock('fieldset-shipping-id', 'shopbite_shipping_method_set'),
         ]));
         $this->stubExistingRelations([]);
         $this->customFieldSetRelationRepository->expects($this->once())
             ->method('upsert')
-            ->with($this->callback(fn (array $data) => array_column($data, 'entityName') === ['product', 'category']), $context);
+            ->with($this->callback(fn (array $data) => array_column($data, 'entityName') === ['product', 'category', 'shipping_method']), $context);
 
         $this->installer->update($context);
     }
@@ -124,6 +137,7 @@ class CustomFieldsInstallerTest extends TestCase
                 ['id' => '7883d489fd114d80b1cc67a32ff64665'],
                 ['id' => '2a57924ff9ab45d3be0e944abfde3f9d'],
                 ['id' => '7c4c6700834a4839acabecf5c4f3e5b3'],
+                ['id' => '8f241eff12c1403eb1145cb766031b51'],
             ], $context);
         $this->customFieldSetRelationRepository->expects($this->never())
             ->method('delete');

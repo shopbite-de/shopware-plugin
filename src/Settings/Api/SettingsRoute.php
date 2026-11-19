@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ShopBite\Settings\Api;
 
 use Doctrine\DBAL\Connection;
+use ShopBite\Fulfillment\ShippingMethodLeadTimes;
 use ShopBite\Settings\RestaurantSettings;
 use ShopBite\Staff\BranchBinding;
 use Shopware\Core\Framework\Context;
@@ -21,6 +22,11 @@ use Symfony\Component\Routing\Attribute\Route;
  * access to the whole system configuration (plugin#34). Users bound to branches (user custom
  * field shopbite_sales_channel_ids, see BranchBinding) see and change only these sales channels.
  *
+ * Every read carries `shippingMethods` (the channel's active shipping methods with fulfillment and
+ * lead time); a PATCH with `leadTimes` writes the lead time onto the shipping method, which
+ * changes it for every sales channel using that method. Hence a bound user may only change methods
+ * that are assigned exclusively to their branches.
+ *
  * @psalm-api Registered through routes.xml
  */
 #[Route(defaults: [PlatformRequest::ATTRIBUTE_ROUTE_SCOPE => ['api']])]
@@ -34,6 +40,7 @@ final readonly class SettingsRoute
         private RestaurantSettings $settings,
         private Connection $connection,
         private BranchBinding $branchBinding,
+        private ShippingMethodLeadTimes $leadTimes,
     ) {
     }
 
@@ -57,7 +64,7 @@ final readonly class SettingsRoute
             if (!BranchBinding::permits($allowed, $id)) {
                 continue;
             }
-            $channels[$id] = $this->settings->read($id, $navigationCategoryId);
+            $channels[$id] = $this->readChannel($id, $navigationCategoryId, $context);
         }
 
         return new JsonResponse(['channels' => (object) $channels]);
@@ -81,7 +88,7 @@ final readonly class SettingsRoute
             return $this->error(Response::HTTP_NOT_FOUND, 'Sales channel not found.');
         }
 
-        return new JsonResponse($this->settings->read($salesChannelId, $navigationCategoryId));
+        return new JsonResponse($this->readChannel($salesChannelId, $navigationCategoryId, $context));
     }
 
     /** @psalm-suppress PossiblyUnusedMethod */
@@ -105,9 +112,56 @@ final readonly class SettingsRoute
         if (\is_string($changes)) {
             return $this->error(Response::HTTP_BAD_REQUEST, $changes);
         }
+        $leadTimes = $changes['leadTimes'] ?? [];
+        $refused = $this->refusedLeadTimes($salesChannelId, $leadTimes, $context);
+        if ($refused !== null) {
+            return $refused;
+        }
         $this->settings->write($salesChannelId, $changes);
+        $this->leadTimes->write($leadTimes);
 
-        return new JsonResponse($this->settings->read($salesChannelId, $navigationCategoryId));
+        return new JsonResponse($this->readChannel($salesChannelId, $navigationCategoryId, $context));
+    }
+
+    /**
+     * @return array{orderingOpen: bool, menuCategoryId: string, shippingMethods: list<array{id: string, name: string, fulfillment: string, leadTimeMinutes: int, leadTimeMinutesSet: bool}>}
+     */
+    private function readChannel(string $salesChannelId, string $navigationCategoryId, Context $context): array
+    {
+        return $this->settings->read($salesChannelId, $navigationCategoryId)
+            + ['shippingMethods' => $this->leadTimes->backoffice($salesChannelId, $context)];
+    }
+
+    /**
+     * 400 for a shipping method that is not assigned to the sales channel, 403 for a bound user
+     * when the method is also assigned to a channel that is not one of their branches.
+     *
+     * @param array<string, int> $leadTimes
+     */
+    private function refusedLeadTimes(string $salesChannelId, array $leadTimes, Context $context): ?JsonResponse
+    {
+        if ($leadTimes === []) {
+            return null;
+        }
+        $channelsByMethod = $this->leadTimes->salesChannelIds(array_keys($leadTimes));
+        foreach (array_keys($leadTimes) as $shippingMethodId) {
+            if (!\in_array($salesChannelId, $channelsByMethod[$shippingMethodId] ?? [], true)) {
+                return $this->error(Response::HTTP_BAD_REQUEST, \sprintf('Shipping method %s is not assigned to this sales channel.', $shippingMethodId));
+            }
+        }
+        $allowed = $this->branchBinding->salesChannelIds($context);
+        foreach ($channelsByMethod as $shippingMethodId => $salesChannelIds) {
+            foreach ($salesChannelIds as $id) {
+                if (!BranchBinding::permits($allowed, $id)) {
+                    return $this->error(
+                        Response::HTTP_FORBIDDEN,
+                        \sprintf('Shipping method %s is also used by a sales channel that is not one of your branches.', $shippingMethodId),
+                    );
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

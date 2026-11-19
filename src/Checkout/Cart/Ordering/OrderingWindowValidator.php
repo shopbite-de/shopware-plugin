@@ -6,6 +6,7 @@ namespace ShopBite\Checkout\Cart\Ordering;
 
 use Psr\Clock\ClockInterface;
 use ShopBite\BusinessHour\BusinessHourCollection;
+use ShopBite\Fulfillment\ShippingMethodFulfillment;
 use ShopBite\Holiday\HolidayCollection;
 use ShopBite\Settings\RestaurantSettings;
 use Shopware\Core\Checkout\Cart\Cart;
@@ -22,7 +23,8 @@ use Symfony\Component\Clock\NativeClock;
 
 /**
  * Blocks orders from the Store API while ordering is paused for the sales
- * channel, on holidays and outside the opening hours (see OrderingWindow).
+ * channel, on holidays and outside the opening hours (see OrderingWindow), using the lead time
+ * of the cart's selected shipping method.
  * Orders entered in the administration (Admin API, or the order proxy with
  * its price overwrite permission) are not checked, nor is an empty cart.
  *
@@ -34,9 +36,6 @@ final readonly class OrderingWindowValidator implements CartValidatorInterface
 
     /** Set by the administration's order proxy (CheckoutPermissions::ALLOW_PRODUCT_PRICE_OVERWRITES). */
     private const string ADMIN_ORDER_PERMISSION = 'allowProductPriceOverwrites';
-
-    /** Delivery time the storefront assumes when none is configured. */
-    private const int DEFAULT_DELIVERY_MINUTES = 30;
 
     /**
      * @param EntityRepository<BusinessHourCollection> $businessHourRepository
@@ -85,7 +84,7 @@ final readonly class OrderingWindowValidator implements CartValidatorInterface
             $this->businessHourRepository->search($hoursCriteria, $context->getContext())->getEntities(),
             $this->holidayRepository->search($holidayCriteria, $context->getContext())->getEntities(),
             $this->timeZone($context),
-            $settings['deliveryMinutes'] ?? self::DEFAULT_DELIVERY_MINUTES,
+            ShippingMethodFulfillment::leadTimeMinutes($context->getShippingMethod()),
         );
 
         $reason = $window->closedReason($now);
