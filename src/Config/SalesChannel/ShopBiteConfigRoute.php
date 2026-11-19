@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace ShopBite\Config\SalesChannel;
 
 use function Psl\Type\bool;
-use function Psl\Type\positive_int;
 use function Psl\Type\string;
 
+use ShopBite\Fulfillment\ShippingMethodLeadTimes;
 use ShopBite\Settings\RestaurantSettings;
 use Shopware\Core\Framework\Plugin\Exception\DecorationPatternException;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
@@ -22,6 +22,7 @@ final readonly class ShopBiteConfigRoute
 {
     public function __construct(
         private SystemConfigService $systemConfigService,
+        private ShippingMethodLeadTimes $leadTimes,
     ) {
     }
 
@@ -44,11 +45,9 @@ final readonly class ShopBiteConfigRoute
         $salesChannelId = $context->getSalesChannelId();
 
         $isCheckoutEnabled = $this->systemConfigService->get('ShopBitePlugin.config.isCheckoutEnabled', $salesChannelId);
-        $defaultDeliveryTime = $this->systemConfigService->get('ShopBitePlugin.config.defaultDeliveryTime', $salesChannelId);
 
         return new ShopBiteConfigRouteResponse(new ShopBiteConfigStruct(
             bool()->coerce($isCheckoutEnabled),
-            positive_int()->coerce($defaultDeliveryTime),
             $this->getOptionalString('addressStreet', $salesChannelId),
             $this->getOptionalString('addressPostalCode', $salesChannelId),
             $this->getOptionalString('addressCity', $salesChannelId),
@@ -58,6 +57,7 @@ final readonly class ShopBiteConfigRoute
                 $this->systemConfigService->get(RestaurantSettings::MENU_CATEGORY, $salesChannelId),
                 $context->getSalesChannel()->getNavigationCategoryId(),
             ),
+            $this->leadTimes->storefront($salesChannelId, $context->getContext()),
         ));
     }
 

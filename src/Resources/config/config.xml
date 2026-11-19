@@ -7,18 +7,6 @@
         <title>Configuration</title>
         <title lang="de-DE">Konfiguration</title>
 
-        <input-field type="int">
-            <name>defaultDeliveryTime</name>
-            <label>Default Delivery Time</label>
-            <label lang="de-DE">Standartlieferzeit</label>
-            <helpText>Please set your default delivery time in minutes.</helpText>
-            <helpText lang="de-DE">Bitte gebe die Standartlieferzeit in Minuten an.</helpText>
-            <min>1</min>
-            <max>1440</max>
-            <defaultValue>30</defaultValue>
-            <required>true</required>
-        </input-field>
-
         <input-field type="bool">
             <name>isCheckoutEnabled</name>
             <label>Enable Checkout</label>

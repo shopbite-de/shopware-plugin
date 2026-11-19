@@ -34,6 +34,11 @@ final readonly class CustomFieldsInstaller
     public const string SHOPBITE_PRINT_REQUESTED_AT = 'shopbite_print_requested_at';
     /** Set by the order printer after every successful print. */
     public const string SHOPBITE_PRINTED_AT = 'shopbite_printed_at';
+    private const string SHIPPING_METHOD_CUSTOM_FIELDSET_NAME = 'shopbite_shipping_method_set';
+    /** delivery | pickup, see ShippingMethodFulfillment. */
+    public const string SHOPBITE_FULFILLMENT = 'shopbite_fulfillment';
+    /** Minutes until delivered or ready for pickup, see ShippingMethodFulfillment. */
+    public const string SHOPBITE_LEAD_TIME_MINUTES = 'shopbite_lead_time_minutes';
 
     private const array CUSTOM_FIELDSET = [
         'id' => '0198be8b24a0722cac46b07e3a80f49b',
@@ -291,6 +296,82 @@ final readonly class CustomFieldsInstaller
         ],
     ];
 
+    private const array SHIPPING_METHOD_CUSTOM_FIELDSET = [
+        'id' => '8f241eff12c1403eb1145cb766031b51',
+        'name' => self::SHIPPING_METHOD_CUSTOM_FIELDSET_NAME,
+        'config' => [
+            'label' => [
+                'en-GB' => 'ShopBite Fulfillment',
+                'de-DE' => 'ShopBite Lieferung/Abholung',
+                Defaults::LANGUAGE_SYSTEM => 'ShopBite Fulfillment',
+            ],
+        ],
+        'customFields' => [
+            [
+                'id' => '4279ced771d3492a810fc6db7331139d',
+                'name' => self::SHOPBITE_FULFILLMENT,
+                'type' => CustomFieldTypes::SELECT,
+                'config' => [
+                    'label' => [
+                        'en-GB' => 'Fulfillment',
+                        'de-DE' => 'Art',
+                        Defaults::LANGUAGE_SYSTEM => 'Fulfillment',
+                    ],
+                    'helpText' => [
+                        'en-GB' => 'Whether the order is delivered or picked up. Without a value it counts as delivery.',
+                        'de-DE' => 'Ob die Bestellung geliefert oder abgeholt wird. Ohne Wert gilt Lieferung.',
+                        Defaults::LANGUAGE_SYSTEM => 'Whether the order is delivered or picked up. Without a value it counts as delivery.',
+                    ],
+                    'componentName' => 'sw-single-select',
+                    'customFieldType' => 'select',
+                    'options' => [
+                        [
+                            'label' => [
+                                'en-GB' => 'Delivery',
+                                'de-DE' => 'Lieferung',
+                                Defaults::LANGUAGE_SYSTEM => 'Delivery',
+                            ],
+                            'value' => 'delivery',
+                        ],
+                        [
+                            'label' => [
+                                'en-GB' => 'Pickup',
+                                'de-DE' => 'Abholung',
+                                Defaults::LANGUAGE_SYSTEM => 'Pickup',
+                            ],
+                            'value' => 'pickup',
+                        ],
+                    ],
+                    'customFieldPosition' => 1,
+                ],
+            ],
+            [
+                'id' => 'ac7a0783eff6445c9bc81ea0b17547ec',
+                'name' => self::SHOPBITE_LEAD_TIME_MINUTES,
+                'type' => CustomFieldTypes::INT,
+                'config' => [
+                    'label' => [
+                        'en-GB' => 'Lead time (minutes)',
+                        'de-DE' => 'Vorlaufzeit (Minuten)',
+                        Defaults::LANGUAGE_SYSTEM => 'Lead time (minutes)',
+                    ],
+                    'helpText' => [
+                        'en-GB' => 'Minutes until the order is delivered or ready for pickup (1 to 1440). Without a value 30 minutes apply. Applies to every sales channel using this shipping method.',
+                        'de-DE' => 'Minuten, bis die Bestellung geliefert oder abholbereit ist (1 bis 1440). Ohne Wert gelten 30 Minuten. Gilt für jeden Verkaufskanal mit dieser Versandart.',
+                        Defaults::LANGUAGE_SYSTEM => 'Minutes until the order is delivered or ready for pickup (1 to 1440). Without a value 30 minutes apply. Applies to every sales channel using this shipping method.',
+                    ],
+                    'componentName' => 'sw-field',
+                    'type' => 'number',
+                    'numberType' => 'int',
+                    'customFieldType' => 'number',
+                    'min' => 1,
+                    'max' => 1440,
+                    'customFieldPosition' => 2,
+                ],
+            ],
+        ],
+    ];
+
     /**
      * @param EntityRepository<CustomFieldSetCollection>         $customFieldSetRepository
      * @param EntityRepository<CustomFieldSetRelationCollection> $customFieldSetRelationRepository
@@ -309,6 +390,7 @@ final readonly class CustomFieldsInstaller
             self::USER_CUSTOM_FIELDSET,
             self::PROPERTY_OPTION_CUSTOM_FIELDSET,
             self::ORDER_CUSTOM_FIELDSET,
+            self::SHIPPING_METHOD_CUSTOM_FIELDSET,
         ], $context);
     }
 
@@ -329,6 +411,7 @@ final readonly class CustomFieldsInstaller
             ['id' => self::USER_CUSTOM_FIELDSET['id']],
             ['id' => self::PROPERTY_OPTION_CUSTOM_FIELDSET['id']],
             ['id' => self::ORDER_CUSTOM_FIELDSET['id']],
+            ['id' => self::SHIPPING_METHOD_CUSTOM_FIELDSET['id']],
         ], $context);
     }
 
@@ -341,6 +424,7 @@ final readonly class CustomFieldsInstaller
             self::USER_CUSTOM_FIELDSET_NAME => ['id' => '3a7f247ccc574eaba89c03083ecf6ec6', 'entityName' => 'user'],
             self::PROPERTY_OPTION_CUSTOM_FIELDSET_NAME => ['id' => '3d93acca858c4899ac8d3e7abd3dcb6d', 'entityName' => 'property_group_option'],
             self::ORDER_CUSTOM_FIELDSET_NAME => ['id' => '6e1132387bc34e8293be2797ca868b92', 'entityName' => 'order'],
+            self::SHIPPING_METHOD_CUSTOM_FIELDSET_NAME => ['id' => 'e47d3c44a17f42a4b5fb66fdde11f2b5', 'entityName' => 'shipping_method'],
         ];
 
         $upserts = [];
@@ -387,6 +471,7 @@ final readonly class CustomFieldsInstaller
             new EqualsFilter('name', self::USER_CUSTOM_FIELDSET_NAME),
             new EqualsFilter('name', self::PROPERTY_OPTION_CUSTOM_FIELDSET_NAME),
             new EqualsFilter('name', self::ORDER_CUSTOM_FIELDSET_NAME),
+            new EqualsFilter('name', self::SHIPPING_METHOD_CUSTOM_FIELDSET_NAME),
         ]));
 
         $entities = $this->customFieldSetRepository->search($criteria, $context)->getEntities();

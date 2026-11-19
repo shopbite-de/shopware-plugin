@@ -6,6 +6,7 @@ namespace ShopBite\Tests\Unit\Checkout\Cart\Ordering;
 
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
@@ -14,11 +15,13 @@ use ShopBite\BusinessHour\BusinessHourEntity;
 use ShopBite\Checkout\Cart\Ordering\OrderingClosedError;
 use ShopBite\Checkout\Cart\Ordering\OrderingWindow;
 use ShopBite\Checkout\Cart\Ordering\OrderingWindowValidator;
+use ShopBite\Fulfillment\ShippingMethodFulfillment;
 use ShopBite\Holiday\HolidayCollection;
 use ShopBite\Settings\RestaurantSettings;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\Error\ErrorCollection;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
+use Shopware\Core\Checkout\Shipping\ShippingMethodEntity;
 use Shopware\Core\Framework\Api\Context\AdminApiSource;
 use Shopware\Core\Framework\Api\Context\ContextSource;
 use Shopware\Core\Framework\Api\Context\SalesChannelApiSource;
@@ -33,6 +36,7 @@ use Shopware\Core\System\SystemConfig\SystemConfigService;
 
 #[CoversClass(OrderingWindowValidator::class)]
 #[CoversClass(OrderingClosedError::class)]
+#[UsesClass(ShippingMethodFulfillment::class)]
 #[AllowMockObjectsWithoutExpectations]
 class OrderingWindowValidatorTest extends TestCase
 {
@@ -85,12 +89,18 @@ class OrderingWindowValidatorTest extends TestCase
         $this->assertBlockedWith(OrderingWindow::CLOSED, $errors);
     }
 
-    public function testDeliveryTimeOfTheSalesChannelIsUsed(): void
+    public function testLeadTimeOfTheSelectedShippingMethodIsUsed(): void
     {
-        // 20:30 UTC = 21:30 Berlin; 60 minutes delivery ends after 22:00.
-        $this->config[RestaurantSettings::DELIVERY_MINUTES] = 60;
+        // 20:30 UTC = 21:30 Berlin; 60 minutes delivery ends after 22:00, 15 minutes pickup before.
+        $this->assertBlockedWith(OrderingWindow::CLOSED, $this->validate('2026-11-16 20:30 UTC', shippingMethod: $this->shippingMethod(['shopbite_fulfillment' => 'delivery', 'shopbite_lead_time_minutes' => 60])));
+        $this->assertCount(0, $this->validate('2026-11-16 20:30 UTC', shippingMethod: $this->shippingMethod(['shopbite_fulfillment' => 'pickup', 'shopbite_lead_time_minutes' => 15])));
+    }
 
-        $this->assertBlockedWith(OrderingWindow::CLOSED, $this->validate('2026-11-16 20:30 UTC'));
+    public function testShippingMethodWithoutLeadTimeTakes30Minutes(): void
+    {
+        // 21:30 Berlin + 30 - 5 grace = 21:55, before 22:00; 21:40 + 25 = 22:05 is after.
+        $this->assertCount(0, $this->validate('2026-11-16 20:30 UTC', shippingMethod: $this->shippingMethod(null)));
+        $this->assertBlockedWith(OrderingWindow::CLOSED, $this->validate('2026-11-16 20:40 UTC', shippingMethod: $this->shippingMethod(null)));
     }
 
     public function testBusinessTimeZoneOfTheSalesChannelIsUsed(): void
@@ -155,6 +165,7 @@ class OrderingWindowValidatorTest extends TestCase
         ?SalesChannelEntity $salesChannel = null,
         ?ContextSource $source = null,
         array $permissions = [],
+        ?ShippingMethodEntity $shippingMethod = null,
     ): ErrorCollection {
         if ($cart === null) {
             $cart = new Cart('token');
@@ -165,6 +176,7 @@ class OrderingWindowValidatorTest extends TestCase
         $context->method('getSalesChannelId')->willReturn(self::CHANNEL);
         $context->method('getSalesChannel')->willReturn($salesChannel ?? $this->salesChannel());
         $context->method('getContext')->willReturn(new Context($source ?? new SalesChannelApiSource(self::CHANNEL)));
+        $context->method('getShippingMethod')->willReturn($shippingMethod ?? $this->shippingMethod(null));
         $context->method('hasPermission')->willReturnCallback(fn (string $permission): bool => $permissions[$permission] ?? false);
 
         $clock = $this->createStub(ClockInterface::class);
@@ -181,6 +193,19 @@ class OrderingWindowValidatorTest extends TestCase
         $validator->validate($cart, $errors, $context);
 
         return $errors;
+    }
+
+    /**
+     * @param array<string, mixed>|null $customFields
+     */
+    private function shippingMethod(?array $customFields): ShippingMethodEntity
+    {
+        $method = new ShippingMethodEntity();
+        $method->setId('0190000000007000800000000000d001');
+        $method->setTechnicalName('shipping_standard');
+        $method->setCustomFields($customFields);
+
+        return $method;
     }
 
     private function salesChannel(): SalesChannelEntity

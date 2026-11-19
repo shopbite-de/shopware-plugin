@@ -4,13 +4,23 @@ declare(strict_types=1);
 
 namespace ShopBite\Tests\Unit\Core\Content\ShopBiteConfig\SalesChannel;
 
+use Doctrine\DBAL\Connection;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 use ShopBite\Config\SalesChannel\ShopBiteConfigRoute;
 use ShopBite\Config\SalesChannel\ShopBiteConfigRouteResponse;
 use ShopBite\Config\SalesChannel\ShopBiteConfigStruct;
+use ShopBite\Fulfillment\ShippingMethodFulfillment;
+use ShopBite\Fulfillment\ShippingMethodLeadTimes;
 use ShopBite\Settings\RestaurantSettings;
+use ShopBite\Tests\Unit\Fulfillment\ShippingMethodLeadTimesTest;
+use Shopware\Core\Checkout\Shipping\ShippingMethodCollection;
+use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Core\System\SalesChannel\SalesChannelEntity;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
@@ -19,6 +29,9 @@ use Shopware\Core\System\SystemConfig\SystemConfigService;
 #[UsesClass(ShopBiteConfigStruct::class)]
 #[UsesClass(ShopBiteConfigRouteResponse::class)]
 #[UsesClass(RestaurantSettings::class)]
+#[UsesClass(ShippingMethodLeadTimes::class)]
+#[UsesClass(ShippingMethodFulfillment::class)]
+#[AllowMockObjectsWithoutExpectations]
 class ShopBiteConfigRouteTest extends TestCase
 {
     private const string NAVIGATION = '211cf9b2d1725130a517bbadf753a43c';
@@ -27,7 +40,6 @@ class ShopBiteConfigRouteTest extends TestCase
     {
         $config = $this->load('sales-channel-id', [
             'isCheckoutEnabled' => true,
-            'defaultDeliveryTime' => 24,
             'addressStreet' => 'Hauptstraße 1',
             'addressPostalCode' => '01067',
             'addressCity' => 'Dresden',
@@ -36,7 +48,6 @@ class ShopBiteConfigRouteTest extends TestCase
         ]);
 
         $this->assertTrue($config->isCheckoutEnabled);
-        $this->assertSame(24, $config->deliveryTime);
         $this->assertSame('Hauptstraße 1', $config->addressStreet);
         $this->assertSame('01067', $config->addressPostalCode);
         $this->assertSame('Dresden', $config->addressCity);
@@ -44,18 +55,44 @@ class ShopBiteConfigRouteTest extends TestCase
         $this->assertSame('https://maps.app.goo.gl/abc', $config->googleBusinessProfileUrl);
     }
 
+    public function testShippingMethodsOfTheChannelWithFulfillmentAndLeadTime(): void
+    {
+        $repository = $this->createMock(EntityRepository::class);
+        $repository->expects($this->once())->method('search')
+            ->with(
+                $this->callback(static function (Criteria $criteria): bool {
+                    foreach ($criteria->getFilters() as $filter) {
+                        if ($filter instanceof EqualsFilter && $filter->getField() === 'salesChannels.id') {
+                            return $filter->getValue() === 'sales-channel-id';
+                        }
+                    }
+
+                    return false;
+                }),
+                $this->isInstanceOf(Context::class),
+            )
+            ->willReturn(ShippingMethodLeadTimesTest::searchResult(ShippingMethodLeadTimesTest::methods()));
+
+        $config = $this->load('sales-channel-id', ['isCheckoutEnabled' => true], new ShippingMethodLeadTimes($repository, $this->createStub(Connection::class)));
+
+        $this->assertSame([
+            ['id' => ShippingMethodLeadTimesTest::DELIVERY, 'fulfillment' => 'delivery', 'leadTimeMinutes' => 45],
+            ['id' => ShippingMethodLeadTimesTest::PICKUP, 'fulfillment' => 'pickup', 'leadTimeMinutes' => 30],
+        ], $config->shippingMethods);
+        $this->assertArrayNotHasKey('deliveryTime', $config->jsonSerialize());
+    }
+
     public function testMenuCategoryComesFromTheConfigElseTheNavigation(): void
     {
         $menu = '018dadb399837af3aa669c8fff4f4d6c';
-        $this->assertSame($menu, $this->load('sales-channel-id', ['isCheckoutEnabled' => true, 'defaultDeliveryTime' => 30, 'menuCategoryId' => $menu])->menuCategoryId);
-        $this->assertSame(self::NAVIGATION, $this->load('sales-channel-id', ['isCheckoutEnabled' => true, 'defaultDeliveryTime' => 30])->menuCategoryId);
+        $this->assertSame($menu, $this->load('sales-channel-id', ['isCheckoutEnabled' => true, 'menuCategoryId' => $menu])->menuCategoryId);
+        $this->assertSame(self::NAVIGATION, $this->load('sales-channel-id', ['isCheckoutEnabled' => true])->menuCategoryId);
     }
 
     public function testLoadReturnsNullForUnsetContactDetails(): void
     {
         $config = $this->load('sales-channel-id', [
             'isCheckoutEnabled' => false,
-            'defaultDeliveryTime' => 30,
         ]);
 
         $this->assertFalse($config->isCheckoutEnabled);
@@ -70,7 +107,6 @@ class ShopBiteConfigRouteTest extends TestCase
     {
         $config = $this->load('sales-channel-id', [
             'isCheckoutEnabled' => true,
-            'defaultDeliveryTime' => 30,
             'addressStreet' => '  Hauptstraße 1 ',
             'addressPostalCode' => '',
             'addressCity' => '   ',
@@ -88,14 +124,13 @@ class ShopBiteConfigRouteTest extends TestCase
     public function testLoadReadsValuesOfTheContextSalesChannel(): void
     {
         $systemConfigService = $this->createMock(SystemConfigService::class);
-        $systemConfigService->expects($this->exactly(8))
+        $systemConfigService->expects($this->exactly(7))
             ->method('get')
             ->willReturnCallback(static function (string $key, ?string $salesChannelId): mixed {
                 static::assertSame('other-sales-channel-id', $salesChannelId);
 
                 return match ($key) {
                     'ShopBitePlugin.config.isCheckoutEnabled' => true,
-                    'ShopBitePlugin.config.defaultDeliveryTime' => 30,
                     'ShopBitePlugin.config.addressCity' => 'Hanau',
                     default => null,
                 };
@@ -103,7 +138,7 @@ class ShopBiteConfigRouteTest extends TestCase
 
         $context = $this->context('other-sales-channel-id');
 
-        $config = new ShopBiteConfigRoute($systemConfigService)->load($context)->getObject();
+        $config = new ShopBiteConfigRoute($systemConfigService, $this->leadTimes())->load($context)->getObject();
 
         $this->assertSame('Hanau', $config->addressCity);
     }
@@ -111,7 +146,7 @@ class ShopBiteConfigRouteTest extends TestCase
     /**
      * @param array<string, mixed> $values plugin config values by field name
      */
-    private function load(string $salesChannelId, array $values): ShopBiteConfigStruct
+    private function load(string $salesChannelId, array $values, ?ShippingMethodLeadTimes $leadTimes = null): ShopBiteConfigStruct
     {
         $systemConfigService = $this->createStub(SystemConfigService::class);
         $systemConfigService->method('get')
@@ -121,7 +156,15 @@ class ShopBiteConfigRouteTest extends TestCase
 
         $context = $this->context($salesChannelId);
 
-        return new ShopBiteConfigRoute($systemConfigService)->load($context)->getObject();
+        return new ShopBiteConfigRoute($systemConfigService, $leadTimes ?? $this->leadTimes())->load($context)->getObject();
+    }
+
+    private function leadTimes(): ShippingMethodLeadTimes
+    {
+        $repository = $this->createStub(EntityRepository::class);
+        $repository->method('search')->willReturn(ShippingMethodLeadTimesTest::searchResult(new ShippingMethodCollection()));
+
+        return new ShippingMethodLeadTimes($repository, $this->createStub(Connection::class));
     }
 
     private function context(string $salesChannelId): SalesChannelContext
@@ -131,6 +174,7 @@ class ShopBiteConfigRouteTest extends TestCase
         $context = $this->createStub(SalesChannelContext::class);
         $context->method('getSalesChannelId')->willReturn($salesChannelId);
         $context->method('getSalesChannel')->willReturn($salesChannel);
+        $context->method('getContext')->willReturn(Context::createDefaultContext());
 
         return $context;
     }

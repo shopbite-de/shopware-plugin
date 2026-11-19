@@ -10,17 +10,24 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use ShopBite\Fulfillment\ShippingMethodFulfillment;
+use ShopBite\Fulfillment\ShippingMethodLeadTimes;
 use ShopBite\Settings\Api\SettingsRoute;
 use ShopBite\Settings\RestaurantSettings;
 use ShopBite\Staff\BranchBinding;
+use ShopBite\Tests\Unit\Fulfillment\ShippingMethodLeadTimesTest;
+use Shopware\Core\Checkout\Shipping\ShippingMethodCollection;
 use Shopware\Core\Framework\Api\Context\AdminApiSource;
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Symfony\Component\HttpFoundation\Request;
 
 #[CoversClass(RestaurantSettings::class)]
 #[CoversClass(SettingsRoute::class)]
 #[CoversClass(BranchBinding::class)]
+#[CoversClass(ShippingMethodLeadTimes::class)]
+#[CoversClass(ShippingMethodFulfillment::class)]
 #[AllowMockObjectsWithoutExpectations]
 class RestaurantSettingsTest extends TestCase
 {
@@ -34,9 +41,19 @@ class RestaurantSettingsTest extends TestCase
 
     private const string USER = '0190000000007000800000000000a001';
 
+    private const array SHIPPING_METHODS = [
+        ['id' => ShippingMethodLeadTimesTest::DELIVERY, 'name' => 'Lieferung', 'fulfillment' => 'delivery', 'leadTimeMinutes' => 45, 'leadTimeMinutesSet' => true],
+        ['id' => ShippingMethodLeadTimesTest::PICKUP, 'name' => 'Abholung', 'fulfillment' => 'pickup', 'leadTimeMinutes' => 30, 'leadTimeMinutesSet' => false],
+    ];
+
     private SystemConfigService&MockObject $systemConfig;
 
     private Connection&MockObject $connection;
+
+    /** @var EntityRepository<ShippingMethodCollection>&MockObject */
+    private EntityRepository&MockObject $shippingMethods;
+
+    private Connection&MockObject $assignments;
 
     private SettingsRoute $route;
 
@@ -44,7 +61,15 @@ class RestaurantSettingsTest extends TestCase
     {
         $this->systemConfig = $this->createMock(SystemConfigService::class);
         $this->connection = $this->createMock(Connection::class);
-        $this->route = new SettingsRoute(new RestaurantSettings($this->systemConfig), $this->connection, new BranchBinding($this->connection));
+        $this->shippingMethods = $this->createMock(EntityRepository::class);
+        $this->shippingMethods->method('search')->willReturn(ShippingMethodLeadTimesTest::searchResult(ShippingMethodLeadTimesTest::methods()));
+        $this->assignments = $this->createMock(Connection::class);
+        $this->route = new SettingsRoute(
+            new RestaurantSettings($this->systemConfig),
+            $this->connection,
+            new BranchBinding($this->connection),
+            new ShippingMethodLeadTimes($this->shippingMethods, $this->assignments),
+        );
     }
 
     public function testReadsTheChannelValuesWithFallback(): void
@@ -52,24 +77,23 @@ class RestaurantSettingsTest extends TestCase
         $this->channelExists(true);
         $this->systemConfig->method('get')->willReturnMap([
             [RestaurantSettings::ORDERING_OPEN, self::CHANNEL, false],
-            [RestaurantSettings::DELIVERY_MINUTES, self::CHANNEL, 45],
             [RestaurantSettings::MENU_CATEGORY, self::CHANNEL, self::MENU],
         ]);
 
         $response = $this->route->read(self::CHANNEL, $this->admin());
 
         static::assertSame(
-            ['orderingOpen' => false, 'deliveryMinutes' => 45, 'menuCategoryId' => self::MENU],
+            ['orderingOpen' => false, 'menuCategoryId' => self::MENU, 'shippingMethods' => self::SHIPPING_METHODS],
             json_decode((string) $response->getContent(), true),
         );
     }
 
-    public function testUnsetMeansOpenWithoutDeliveryTime(): void
+    public function testUnsetMeansOpen(): void
     {
         $this->systemConfig->method('get')->willReturn(null);
 
         static::assertSame(
-            ['orderingOpen' => true, 'deliveryMinutes' => null, 'menuCategoryId' => self::NAVIGATION],
+            ['orderingOpen' => true, 'menuCategoryId' => self::NAVIGATION],
             new RestaurantSettings($this->systemConfig)->read(self::CHANNEL, self::NAVIGATION),
         );
     }
@@ -106,7 +130,7 @@ class RestaurantSettingsTest extends TestCase
 
         $body = json_decode((string) $this->route->list($this->admin())->getContent(), true);
 
-        static::assertSame(['channels' => [self::CHANNEL => ['orderingOpen' => true, 'deliveryMinutes' => null, 'menuCategoryId' => self::NAVIGATION]]], $body);
+        static::assertSame(['channels' => [self::CHANNEL => ['orderingOpen' => true, 'menuCategoryId' => self::NAVIGATION, 'shippingMethods' => self::SHIPPING_METHODS]]], $body);
     }
 
     public function testMenuCategoryFallsBackToTheNavigation(): void
@@ -122,11 +146,79 @@ class RestaurantSettingsTest extends TestCase
         $this->channelExists(true);
         $this->systemConfig->expects($this->once())
             ->method('set')
-            ->with(RestaurantSettings::DELIVERY_MINUTES, 60, self::CHANNEL);
+            ->with(RestaurantSettings::ORDERING_OPEN, false, self::CHANNEL);
+        $this->shippingMethods->expects($this->never())->method('update');
 
-        $response = $this->route->update(self::CHANNEL, new Request(request: ['deliveryMinutes' => 60]), $this->admin());
+        $response = $this->route->update(self::CHANNEL, new Request(request: ['orderingOpen' => false]), $this->admin());
 
         static::assertSame(200, $response->getStatusCode());
+    }
+
+    public function testWritesLeadTimesOfTheChannelsShippingMethods(): void
+    {
+        $this->channelExists(true);
+        $this->assigned([ShippingMethodLeadTimesTest::DELIVERY => [self::CHANNEL, self::OTHER_CHANNEL], ShippingMethodLeadTimesTest::PICKUP => [self::CHANNEL]]);
+        $this->systemConfig->expects($this->never())->method('set');
+        $this->shippingMethods->expects($this->once())->method('update')->with([
+            ['id' => ShippingMethodLeadTimesTest::DELIVERY, 'customFields' => ['shopbite_lead_time_minutes' => 50]],
+            ['id' => ShippingMethodLeadTimesTest::PICKUP, 'customFields' => ['shopbite_lead_time_minutes' => 15]],
+        ]);
+
+        $response = $this->route->update(self::CHANNEL, new Request(request: ['leadTimes' => [
+            ShippingMethodLeadTimesTest::DELIVERY => 50,
+            strtoupper(ShippingMethodLeadTimesTest::PICKUP) => 15,
+        ]]), $this->admin());
+
+        static::assertSame(200, $response->getStatusCode());
+        $body = json_decode((string) $response->getContent(), true);
+        static::assertIsArray($body);
+        static::assertArrayHasKey('shippingMethods', $body);
+    }
+
+    public function testLeadTimeOfAShippingMethodOfAnotherChannelIsRejected(): void
+    {
+        $this->channelExists(true);
+        $this->assigned([ShippingMethodLeadTimesTest::DELIVERY => [self::CHANNEL], ShippingMethodLeadTimesTest::PICKUP => [self::OTHER_CHANNEL]]);
+        $this->systemConfig->expects($this->never())->method('set');
+        $this->shippingMethods->expects($this->never())->method('update');
+
+        $response = $this->route->update(self::CHANNEL, new Request(request: [
+            'orderingOpen' => false,
+            'leadTimes' => [ShippingMethodLeadTimesTest::DELIVERY => 50, ShippingMethodLeadTimesTest::PICKUP => 15],
+        ]), $this->admin());
+
+        static::assertSame(400, $response->getStatusCode());
+    }
+
+    public function testBoundUserChangesOnlyLeadTimesOfMethodsUsedByTheirBranchesAlone(): void
+    {
+        $this->connection->method('fetchAllAssociative')->willReturnCallback(
+            static fn (string $sql, array $params = []): array => [['id' => strtolower(bin2hex((string) $params['id'])), 'navigation' => self::NAVIGATION]],
+        );
+        $this->connection->method('fetchOne')->willReturn(json_encode(['shopbite_sales_channel_ids' => [self::CHANNEL]]));
+        $this->systemConfig->method('get')->willReturn(null);
+        $this->assigned([ShippingMethodLeadTimesTest::DELIVERY => [self::CHANNEL, self::OTHER_CHANNEL], ShippingMethodLeadTimesTest::PICKUP => [self::CHANNEL]]);
+        $this->shippingMethods->expects($this->once())->method('update')->with([
+            ['id' => ShippingMethodLeadTimesTest::PICKUP, 'customFields' => ['shopbite_lead_time_minutes' => 15]],
+        ]);
+        $context = new Context(new AdminApiSource(self::USER));
+
+        // Delivery is shared with a channel the user is not bound to: changing it would change that branch too.
+        static::assertSame(403, $this->route->update(self::CHANNEL, new Request(request: ['leadTimes' => [ShippingMethodLeadTimesTest::DELIVERY => 50, ShippingMethodLeadTimesTest::PICKUP => 15]]), $context)->getStatusCode());
+        static::assertSame(200, $this->route->update(self::CHANNEL, new Request(request: ['leadTimes' => [ShippingMethodLeadTimesTest::PICKUP => 15]]), $context)->getStatusCode());
+    }
+
+    public function testUserBoundToAllChannelsOfAMethodMayChangeIt(): void
+    {
+        $this->connection->method('fetchAllAssociative')->willReturnCallback(
+            static fn (string $sql, array $params = []): array => [['id' => strtolower(bin2hex((string) $params['id'])), 'navigation' => self::NAVIGATION]],
+        );
+        $this->connection->method('fetchOne')->willReturn(json_encode(['shopbite_sales_channel_ids' => [self::CHANNEL, self::OTHER_CHANNEL]]));
+        $this->systemConfig->method('get')->willReturn(null);
+        $this->assigned([ShippingMethodLeadTimesTest::DELIVERY => [self::CHANNEL, self::OTHER_CHANNEL]]);
+        $this->shippingMethods->expects($this->once())->method('update');
+
+        static::assertSame(200, $this->route->update(self::CHANNEL, new Request(request: ['leadTimes' => [ShippingMethodLeadTimesTest::DELIVERY => 50]]), new Context(new AdminApiSource(self::USER)))->getStatusCode());
     }
 
     public function testUnknownSalesChannelIsNotFound(): void
@@ -159,9 +251,15 @@ class RestaurantSettingsTest extends TestCase
         yield 'other config key' => [['passkeyRpId' => 'evil.example']];
         yield 'menu category (plugin configuration only)' => [['menuCategoryId' => self::MENU]];
         yield 'ordering as string' => [['orderingOpen' => 'false']];
-        yield 'delivery time zero' => [['deliveryMinutes' => 0]];
-        yield 'delivery time too long' => [['deliveryMinutes' => 1441]];
-        yield 'delivery time as float' => [['deliveryMinutes' => 30.5]];
+        yield 'delivery minutes (removed, lead time per shipping method)' => [['deliveryMinutes' => 30]];
+        yield 'lead times not an object' => [['leadTimes' => 30]];
+        yield 'lead times empty' => [['leadTimes' => []]];
+        yield 'lead time zero' => [['leadTimes' => [ShippingMethodLeadTimesTest::DELIVERY => 0]]];
+        yield 'lead time too long' => [['leadTimes' => [ShippingMethodLeadTimesTest::DELIVERY => 1441]]];
+        yield 'lead time as float' => [['leadTimes' => [ShippingMethodLeadTimesTest::DELIVERY => 30.5]]];
+        yield 'lead time as string' => [['leadTimes' => [ShippingMethodLeadTimesTest::DELIVERY => '30']]];
+        yield 'lead time of no id' => [['leadTimes' => ['standard' => 30]]];
+        yield 'lead times as list' => [['leadTimes' => [30]]];
     }
 
     public function testBoundUserReadsAndWritesOnlyTheirBranches(): void
@@ -212,6 +310,23 @@ class RestaurantSettingsTest extends TestCase
         $source->setIsAdmin(true);
 
         return new Context($source);
+    }
+
+    /**
+     * @param array<string, list<string>> $channelsByMethod
+     */
+    private function assigned(array $channelsByMethod): void
+    {
+        $rows = [];
+        foreach ($channelsByMethod as $method => $channels) {
+            foreach ($channels as $channel) {
+                $rows[] = ['shipping_method_id' => $method, 'sales_channel_id' => $channel];
+            }
+        }
+        $this->assignments->method('fetchAllAssociative')->willReturnCallback(static fn (string $sql, array $params): array => array_values(array_filter(
+            $rows,
+            static fn (array $row): bool => \in_array(hex2bin($row['shipping_method_id']), $params['ids'], true),
+        )));
     }
 
     private function channelExists(bool $exists): void

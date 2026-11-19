@@ -16,7 +16,8 @@ The ShopBite plugin extends Shopware 6 with specialized features tailored for th
 - **Checkout Enhancements**:
     - Dish line items (`type: container`): the product as first child, extras as further product children. The plugin validates the structure (product children with product ids, at most 30) and sets label and product number from the products; the ingredients to leave out come from `payload.without` (at most 20 names of up to 100 characters) or the `-<ingredient>` parts of the label, and only options of the product's property group "Hauptzutaten" are kept. Dishes carry no receipt print type, so the printer prints their label.
     - Receipt print type processing for specialized fulfillment workflows.
-    - Ordering window: a cart validator blocks Store API orders while ordering is paused for the sales channel (`isCheckoutEnabled`), on holidays and when no opening interval of today ends after now plus the delivery time (orders for later today are allowed, intervals past midnight count). Time zone: the sales channel's business time zone (Shopware 6.7.13+), else Europe/Berlin. Cart error keys: `shopbite-ordering-paused`, `shopbite-ordering-holiday`, `shopbite-ordering-closed`.
+    - Ordering window: a cart validator blocks Store API orders while ordering is paused for the sales channel (`isCheckoutEnabled`), on holidays and when no opening interval of today ends after now plus the lead time of the cart's shipping method (orders for later today are allowed, intervals past midnight count). Time zone: the sales channel's business time zone (Shopware 6.7.13+), else Europe/Berlin. Cart error keys: `shopbite-ordering-paused`, `shopbite-ordering-holiday`, `shopbite-ordering-closed`.
+- **Delivery and pickup**: each shipping method carries its fulfillment and lead time, see [Delivery and pickup](#delivery-and-pickup).
 - **Headless Optimized**: Designed from the ground up to work with the ShopBite Nuxt storefront and the Shopware Store API.
 
 ## Integration
@@ -58,9 +59,22 @@ Install and update also create two ACL roles with fixed ids for the [ShopBite ba
 | Role | May |
 | --- | --- |
 | `ShopBite Management` | menu, prices, variants, extras and extras groups, sections, SEO, opening hours, orders (69 privileges) |
-| `ShopBite Personal` | today's orders, done/cancel, pausing online orders, delivery time (15 privileges) |
+| `ShopBite Personal` | today's orders, done/cancel, pausing online orders, lead times (15 privileges) |
 
-Ordering on/off and the delivery time go through `GET/PATCH /api/_action/shopbite/settings/{salesChannelId}` (`{"orderingOpen": bool, "deliveryMinutes": int}`, channel value with the global value as fallback), guarded by the plugin privileges `shopbite_settings:read` and `shopbite_settings:update`. Neither role has `system_config:*` rights. `GET /api/_action/shopbite/settings` lists all sales channels; every read also returns `menuCategoryId`, the menu root from the plugin configuration (per sales channel, else its navigation category), which `/store-api/shopbite/config` returns as well.
+Ordering on/off and the lead times go through `GET/PATCH /api/_action/shopbite/settings/{salesChannelId}`, guarded by the plugin privileges `shopbite_settings:read` and `shopbite_settings:update`. Neither role has `system_config:*` rights. `GET /api/_action/shopbite/settings` lists all sales channels (`{"channels": {"<id>": <read>}}`). A read returns:
+
+```json
+{
+  "orderingOpen": true,
+  "menuCategoryId": "<id>",
+  "shippingMethods": [
+    {"id": "<id>", "name": "Lieferung", "fulfillment": "delivery", "leadTimeMinutes": 45, "leadTimeMinutesSet": true},
+    {"id": "<id>", "name": "Abholung", "fulfillment": "pickup", "leadTimeMinutes": 30, "leadTimeMinutesSet": false}
+  ]
+}
+```
+
+`orderingOpen` is the channel value with the global value as fallback, `menuCategoryId` the menu root from the plugin configuration (per sales channel, else its navigation category, also returned by `/store-api/shopbite/config`), `shippingMethods` the channel's active shipping methods (see [Delivery and pickup](#delivery-and-pickup); `leadTimeMinutesSet: false` = the default of 30 minutes applies). `PATCH` accepts `{"orderingOpen"?: bool, "leadTimes"?: {"<shippingMethodId>": minutes}}` (minutes 1 to 1440, only shipping methods assigned to this sales channel, else 400) and answers with the new read. A lead time is stored on the shipping method, so it changes for **every** sales channel that uses the method.
 
 Accounts are managed on the command line (`--help` on each command):
 
@@ -71,7 +85,29 @@ bin/console shopbite:staff:update counter --branch=<salesChannelId> | --role=...
 bin/console shopbite:staff:list
 ```
 
-Staff need at least one branch; management without a branch sees all. Branches are stored in the user custom field `shopbite_sales_channel_ids` (custom field set `shopbite_user_set`). The plugin enforces the binding in the Admin API: the restaurant settings route (`/api/_action/shopbite/settings`) answers 403 for other sales channels and lists only the user's own, searches on orders and their parts (line items, deliveries, transactions, customers, addresses, documents, ...) return only orders of the user's branches, requests that would reach orders through another entity (e.g. a sales channel's or a product's orders, also as filter, sorting or aggregation) are refused with 403, and writes and order action routes (state transitions, ...) on orders of other branches are refused as well. Admins, integrations and users without a branch are not restricted; a branch field that is set but unreadable allows no branch. Like the order printer role, the staff roles are reset on update and removed on uninstall without *keep user data*.
+Staff need at least one branch; management without a branch sees all. Branches are stored in the user custom field `shopbite_sales_channel_ids` (custom field set `shopbite_user_set`). The plugin enforces the binding in the Admin API: the restaurant settings route (`/api/_action/shopbite/settings`) answers 403 for other sales channels and lists only the user's own, searches on orders and their parts (line items, deliveries, transactions, customers, addresses, documents, ...) return only orders of the user's branches, requests that would reach orders through another entity (e.g. a sales channel's or a product's orders, also as filter, sorting or aggregation) are refused with 403, and writes and order action routes (state transitions, ...) on orders of other branches are refused as well. A bound user may change the lead time of a shipping method only when every sales channel it is assigned to is one of their branches (else 403). Admins, integrations and users without a branch are not restricted; a branch field that is set but unreadable allows no branch. Like the order printer role, the staff roles are reset on update and removed on uninstall without *keep user data*.
+
+## Delivery and pickup
+
+A shop has a shipping method for delivery and one for pickup. Each carries two custom fields (set `shopbite_shipping_method_set`, *Settings > Shipping* in the administration):
+
+| Field | Type | Without a value |
+| --- | --- | --- |
+| `shopbite_fulfillment` | select `delivery` \| `pickup` | `delivery` |
+| `shopbite_lead_time_minutes` | int, 1 to 1440: minutes until delivered or ready for pickup | 30 |
+
+Nothing else is read: the name of a method does not matter at runtime. The plugin update that introduced the fields filled them once for existing shipping methods (pickup when the technical name or a name contains "abhol", "pickup" or "selbst", else delivery; the lead time from the former plugin setting *Default Delivery Time*, which is gone), only where they were empty.
+
+`/store-api/shopbite/config` returns the active shipping methods of the sales channel:
+
+```json
+"shippingMethods": [
+  {"id": "<id>", "fulfillment": "delivery", "leadTimeMinutes": 45},
+  {"id": "<id>", "fulfillment": "pickup", "leadTimeMinutes": 20}
+]
+```
+
+The storefront shows the earliest time per method from it, and the ordering window (see Key Features) checks the lead time of the shipping method selected in the cart. The backoffice changes the lead times through the settings route (see [Backoffice roles and accounts](#backoffice-roles-and-accounts)). The storefront caches the config route for 60 seconds and the backoffice purges it after saving settings, so changes show up within a minute at most.
 
 ## Allergens and additives
 

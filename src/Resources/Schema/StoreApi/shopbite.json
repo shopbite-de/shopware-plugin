@@ -10,7 +10,7 @@
       "get": {
         "tags": ["ShopBite"],
         "summary": "Get ShopBite configuration",
-        "description": "Retrieves ShopBite configuration including checkout status and delivery time",
+        "description": "Retrieves ShopBite configuration including checkout status and the fulfillment and lead time of each shipping method",
         "operationId": "shopbite.config.get",
         "parameters": [],
         "responses": {
@@ -327,11 +327,6 @@
             "type": "boolean",
             "description": "Whether checkout is enabled for ShopBite"
           },
-          "deliveryTime": {
-            "type": "integer",
-            "minimum": 1,
-            "description": "Default delivery time in minutes"
-          },
           "addressStreet": {
             "type": "string",
             "nullable": true,
@@ -362,9 +357,33 @@
             "type": "string",
             "pattern": "^[0-9a-f]{32}$",
             "description": "Root category of the menu: the configured menu category, else the navigation category of the sales channel"
+          },
+          "shippingMethods": {
+            "type": "array",
+            "description": "The active shipping methods of the sales channel with fulfillment and lead time (shipping method custom fields shopbite_fulfillment and shopbite_lead_time_minutes; without a value: delivery and 30 minutes)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{32}$"
+                },
+                "fulfillment": {
+                  "type": "string",
+                  "enum": ["delivery", "pickup"]
+                },
+                "leadTimeMinutes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1440,
+                  "description": "Minutes until the order is delivered or ready for pickup"
+                }
+              },
+              "required": ["id", "fulfillment", "leadTimeMinutes"]
+            }
           }
         },
-        "required": ["isCheckoutEnabled", "deliveryTime", "menuCategoryId"]
+        "required": ["isCheckoutEnabled", "menuCategoryId", "shippingMethods"]
       },
       "BusinessHour": {
         "type": "object",
