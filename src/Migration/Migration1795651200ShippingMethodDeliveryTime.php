@@ -5,20 +5,23 @@ declare(strict_types=1);
 namespace ShopBite\Migration;
 
 use Doctrine\DBAL\Connection;
+use ShopBite\Fulfillment\MinuteDeliveryTimes;
 use ShopBite\Fulfillment\ShippingMethodFulfillment;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Migration\MigrationStep;
 use Shopware\Core\Framework\Uuid\Uuid;
 
 /**
- * The lead time of a shipping method is its Shopware delivery time. Every shipping method whose
- * delivery time is not minute based (Shopware's default "1-3 days", a "0-1 hour", none) gets one of
+ * The lead time of a shipping method is its Shopware delivery time. Every shipping method that is
+ * assigned to a sales channel and whose delivery time is not minute based (Shopware's default
+ * "1-3 days", a "0-1 hour", none) gets one of
  * exactly X minutes (an existing delivery time with unit minute and min = max = X, else a new one
  * named "X Minuten" / "X minutes"); a method with a minute delivery time keeps it. X is the value of
  * the removed custom field shopbite_lead_time_minutes when a translation holds a valid one (system
  * language first), else the former plugin setting defaultDeliveryTime (the values set explicitly on
  * the method's channels when they agree, else the global value, else 30). Delivery times are never
- * changed, only assigned. Afterwards the custom field, its key in the shipping method translations
+ * changed, only assigned; the previous one is remembered (MinuteDeliveryTimes), so deactivating the
+ * plugin can put it back. Methods in no sales channel stay as they are. Afterwards the custom field, its key in the shipping method translations
  * and the former setting are removed. Running it again changes nothing.
  *
  * @psalm-api registered by Shopware's migration collection
@@ -56,23 +59,26 @@ final class Migration1795651200ShippingMethodDeliveryTime extends MigrationStep
             $customFields[(string) $row['id']][(string) $row['language_id']] = self::decode($row['custom_fields']);
         }
 
+        $this->createTable($connection);
+        $deliveryTimes = new MinuteDeliveryTimes($connection);
         $minuteDeliveryTimes = null;
         $locales = null;
         foreach ($connection->fetchAllAssociative(
             'SELECT LOWER(HEX(shipping_method.id)) AS id, LOWER(HEX(delivery_time.id)) AS delivery_time_id, delivery_time.unit
              FROM shipping_method LEFT JOIN delivery_time ON delivery_time.id = shipping_method.delivery_time_id',
         ) as $row) {
-            if ($row['unit'] === ShippingMethodFulfillment::UNIT_MINUTE) {
+            $id = (string) $row['id'];
+            // Methods in no sales channel are not used for orders; they keep their delivery time.
+            if ($row['unit'] === ShippingMethodFulfillment::UNIT_MINUTE || !isset($channelsByMethod[$id])) {
                 continue;
             }
-            $id = (string) $row['id'];
             $minutes = self::customFieldMinutes($customFields[$id] ?? [])
-                ?? self::minutes($channelsByMethod[$id] ?? [], $channelValues, $global);
+                ?? self::minutes($channelsByMethod[$id], $channelValues, $global);
 
-            $minuteDeliveryTimes ??= $this->minuteDeliveryTimes($connection);
+            $minuteDeliveryTimes ??= $deliveryTimes->existing();
             if (!isset($minuteDeliveryTimes[$minutes])) {
-                $locales ??= $this->locales($connection);
-                $minuteDeliveryTimes[$minutes] = $this->createDeliveryTime($connection, $minutes, $locales);
+                $locales ??= $deliveryTimes->locales();
+                $minuteDeliveryTimes[$minutes] = $deliveryTimes->create($minutes, $locales);
             }
             $connection->executeStatement(
                 'UPDATE shipping_method SET delivery_time_id = :deliveryTime, updated_at = :now WHERE id = :id',
@@ -82,6 +88,8 @@ final class Migration1795651200ShippingMethodDeliveryTime extends MigrationStep
                     'id' => Uuid::fromHexToBytes($id),
                 ],
             );
+            $previous = $row['delivery_time_id'];
+            $deliveryTimes->remember($id, \is_string($previous) ? $previous : null, $minuteDeliveryTimes[$minutes]);
         }
 
         foreach ($customFields as $id => $translations) {
@@ -146,67 +154,29 @@ final class Migration1795651200ShippingMethodDeliveryTime extends MigrationStep
     }
 
     /**
-     * The existing delivery times of exactly X minutes, by X (the oldest when there are several).
-     *
-     * @return array<int, string>
+     * The previous delivery time of every shipping method the plugin moved to minutes, see
+     * MinuteDeliveryTimes.
      */
-    private function minuteDeliveryTimes(Connection $connection): array
+    private function createTable(Connection $connection): void
     {
-        $ids = [];
-        foreach ($connection->fetchAllAssociative(
-            'SELECT LOWER(HEX(id)) AS id, min, max FROM delivery_time WHERE unit = :unit ORDER BY created_at, id',
-            ['unit' => ShippingMethodFulfillment::UNIT_MINUTE],
-        ) as $row) {
-            $max = (int) $row['max'];
-            if ((int) $row['min'] === $max && !isset($ids[$max])) {
-                $ids[$max] = (string) $row['id'];
-            }
-        }
-
-        return $ids;
-    }
-
-    /**
-     * @param array<string, string> $locales locale code by language id
-     */
-    private function createDeliveryTime(Connection $connection, int $minutes, array $locales): string
-    {
-        $id = Uuid::randomBytes();
-        $connection->executeStatement(
-            'INSERT INTO delivery_time (id, min, max, unit, created_at) VALUES (:id, :min, :max, :unit, :now)',
-            ['id' => $id, 'min' => $minutes, 'max' => $minutes, 'unit' => ShippingMethodFulfillment::UNIT_MINUTE, 'now' => self::now()],
-        );
-        foreach ($locales as $languageId => $locale) {
-            $connection->executeStatement(
-                'INSERT INTO delivery_time_translation (delivery_time_id, language_id, name, created_at) VALUES (:id, :language, :name, :now)',
-                [
-                    'id' => $id,
-                    'language' => Uuid::fromHexToBytes($languageId),
-                    'name' => ShippingMethodFulfillment::deliveryTimeName($minutes, $locale),
-                    'now' => self::now(),
-                ],
-            );
-        }
-
-        return Uuid::fromBytesToHex($id);
-    }
-
-    /**
-     * The locale code of every language by language id; the system language is always included.
-     *
-     * @return array<string, string>
-     */
-    private function locales(Connection $connection): array
-    {
-        $locales = [Defaults::LANGUAGE_SYSTEM => 'en-GB'];
-        foreach ($connection->fetchAllAssociative(
-            'SELECT LOWER(HEX(language.id)) AS id, locale.code AS locale
-             FROM language LEFT JOIN locale ON locale.id = COALESCE(language.translation_code_id, language.locale_id)',
-        ) as $row) {
-            $locales[(string) $row['id']] = \is_string($row['locale']) ? $row['locale'] : '';
-        }
-
-        return $locales;
+        $connection->executeStatement('
+            CREATE TABLE IF NOT EXISTS `shopbite_shipping_method_delivery_time` (
+                `shipping_method_id` BINARY(16) NOT NULL,
+                `previous_delivery_time_id` BINARY(16) NULL,
+                `minute_delivery_time_id` BINARY(16) NOT NULL,
+                `created_at` DATETIME(3) NOT NULL,
+                `updated_at` DATETIME(3) NULL,
+                PRIMARY KEY (`shipping_method_id`),
+                KEY `fk.shopbite_shipping_method_delivery_time.previous` (`previous_delivery_time_id`),
+                KEY `fk.shopbite_shipping_method_delivery_time.minute` (`minute_delivery_time_id`),
+                CONSTRAINT `fk.shopbite_shipping_method_delivery_time.shipping_method_id` FOREIGN KEY (`shipping_method_id`)
+                    REFERENCES `shipping_method` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+                CONSTRAINT `fk.shopbite_shipping_method_delivery_time.previous` FOREIGN KEY (`previous_delivery_time_id`)
+                    REFERENCES `delivery_time` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+                CONSTRAINT `fk.shopbite_shipping_method_delivery_time.minute` FOREIGN KEY (`minute_delivery_time_id`)
+                    REFERENCES `delivery_time` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ');
     }
 
     /**

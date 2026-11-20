@@ -8,6 +8,7 @@ use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
+use ShopBite\Fulfillment\MinuteDeliveryTimes;
 use ShopBite\Fulfillment\ShippingMethodFulfillment;
 use ShopBite\Migration\Migration1795651200ShippingMethodDeliveryTime;
 use Shopware\Core\Defaults;
@@ -15,6 +16,7 @@ use Shopware\Core\Framework\Uuid\Uuid;
 
 #[CoversClass(Migration1795651200ShippingMethodDeliveryTime::class)]
 #[UsesClass(ShippingMethodFulfillment::class)]
+#[UsesClass(MinuteDeliveryTimes::class)]
 class Migration1795651200ShippingMethodDeliveryTimeTest extends TestCase
 {
     private const string CHANNEL = '0190000000007000800000000000b001';
@@ -30,6 +32,8 @@ class Migration1795651200ShippingMethodDeliveryTimeTest extends TestCase
     private const string EXPRESS = '0190000000007000800000000000d003';
 
     private const string MINUTES = '0190000000007000800000000000d004';
+
+    private const string UNASSIGNED = '0190000000007000800000000000d005';
 
     private const string GERMAN = '0190000000007000800000000000e001';
 
@@ -68,6 +72,8 @@ class Migration1795651200ShippingMethodDeliveryTimeTest extends TestCase
                 ['id' => self::EXPRESS, 'delivery_time_id' => self::DAYS, 'unit' => 'day'],
                 // already minute based: kept, also when the removed custom field says otherwise
                 ['id' => self::MINUTES, 'delivery_time_id' => self::MINUTES_RANGE, 'unit' => 'minute'],
+                // in no sales channel: stays as it is
+                ['id' => self::UNASSIGNED, 'delivery_time_id' => self::DAYS, 'unit' => 'day'],
             ],
             translations: [
                 ['id' => self::DELIVERY, 'language_id' => Defaults::LANGUAGE_SYSTEM, 'custom_fields' => '{"shopbite_fulfillment": "delivery"}'],
@@ -100,6 +106,18 @@ class Migration1795651200ShippingMethodDeliveryTimeTest extends TestCase
             self::EXPRESS => $created[1]['id'],
         ], $this->assignedDeliveryTimes());
 
+        // the previous delivery times are remembered for deactivate()
+        $this->assertSame([
+            self::DELIVERY => [self::HOUR_RANGE, self::MINUTES_25],
+            self::PICKUP => [self::HOUR_RANGE, $created[0]['id']],
+            self::EXPRESS => [self::DAYS, $created[1]['id']],
+        ], $this->remembered());
+        $this->assertStringContainsString('CREATE TABLE IF NOT EXISTS `shopbite_shipping_method_delivery_time`', $this->statements[0][0]);
+        preg_match_all('/`([^`]+)`/', $this->statements[0][0], $identifiers);
+        foreach ($identifiers[1] as $identifier) {
+            $this->assertLessThanOrEqual(64, \strlen($identifier), 'MariaDB identifiers have at most 64 characters: ' . $identifier);
+        }
+
         // the key of the removed field is stripped from every translation that has it
         $this->assertSame([
             self::EXPRESS . '/' . Defaults::LANGUAGE_SYSTEM => ['shopbite_fulfillment' => 'delivery'],
@@ -125,6 +143,7 @@ class Migration1795651200ShippingMethodDeliveryTimeTest extends TestCase
 
         $this->assertSame([], $this->createdDeliveryTimes());
         $this->assertSame([], $this->assignedDeliveryTimes());
+        $this->assertSame([], $this->remembered());
         $this->assertSame([], $this->customFieldUpdates());
     }
 
@@ -229,6 +248,24 @@ class Migration1795651200ShippingMethodDeliveryTimeTest extends TestCase
         }
 
         return $assigned;
+    }
+
+    /**
+     * @return array<string, array{string|null, string}>
+     */
+    private function remembered(): array
+    {
+        $remembered = [];
+        foreach ($this->statements as [$sql, $params]) {
+            if (str_contains($sql, 'INSERT INTO shopbite_shipping_method_delivery_time')) {
+                $remembered[Uuid::fromBytesToHex((string) $params['method'])] = [
+                    $params['previous'] === null ? null : Uuid::fromBytesToHex((string) $params['previous']),
+                    Uuid::fromBytesToHex((string) $params['minute']),
+                ];
+            }
+        }
+
+        return $remembered;
     }
 
     /**

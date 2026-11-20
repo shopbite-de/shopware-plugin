@@ -12,6 +12,7 @@ use ShopBite\Settings\RestaurantSettings;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\CartValidatorInterface;
 use Shopware\Core\Checkout\Cart\Error\ErrorCollection;
+use Shopware\Core\Checkout\Shipping\ShippingMethodEntity;
 use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Api\Context\SalesChannelApiSource;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
@@ -85,13 +86,25 @@ final readonly class OrderingWindowValidator implements CartValidatorInterface
             $this->businessHourRepository->search($hoursCriteria, $context->getContext())->getEntities(),
             $this->holidayRepository->search($holidayCriteria, $context->getContext())->getEntities(),
             $this->timeZone($context),
-            $this->leadTimes->leadTimeMinutes($context->getShippingMethod(), $context->getContext()),
+            $this->leadTimes->leadTimeMinutes($this->shippingMethod($cart, $context), $context->getContext()),
         );
 
         $reason = $window->closedReason($now);
         if ($reason !== null) {
             $errors->add(new OrderingClosedError($reason));
         }
+    }
+
+    /**
+     * The selected shipping method; the cart's delivery carries it with its delivery time, the
+     * context's one comes without (then ShippingMethodLeadTimes loads it).
+     */
+    private function shippingMethod(Cart $cart, SalesChannelContext $context): ShippingMethodEntity
+    {
+        $selected = $context->getShippingMethod();
+        $delivered = $cart->getDeliveries()->first()?->getShippingMethod();
+
+        return $delivered !== null && $delivered->getId() === $selected->getId() && $delivered->getDeliveryTime() !== null ? $delivered : $selected;
     }
 
     /**

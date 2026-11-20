@@ -62,6 +62,10 @@
             <argument type="service" id="shipping_method.repository"/>
             <argument type="service" id="delivery_time.repository"/>
             <argument type="service" id="Doctrine\DBAL\Connection"/>
+            <argument type="service" id="ShopBite\Fulfillment\MinuteDeliveryTimes"/>
+        </service>
+        <service id="ShopBite\Fulfillment\MinuteDeliveryTimes">
+            <argument type="service" id="Doctrine\DBAL\Connection"/>
         </service>
 
         <!-- Restaurant settings for the backoffice (own privileges instead of system_config) -->

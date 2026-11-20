@@ -9,12 +9,10 @@ use Doctrine\DBAL\Connection;
 use ShopBite\Staff\BranchBinding;
 use Shopware\Core\Checkout\Shipping\ShippingMethodCollection;
 use Shopware\Core\Checkout\Shipping\ShippingMethodEntity;
-use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Api\Context\SystemSource;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsAnyFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Sorting\FieldSorting;
 use Shopware\Core\Framework\Uuid\Uuid;
@@ -38,6 +36,7 @@ final readonly class ShippingMethodLeadTimes
         private EntityRepository $shippingMethodRepository,
         private EntityRepository $deliveryTimeRepository,
         private Connection $connection,
+        private MinuteDeliveryTimes $minuteDeliveryTimes,
     ) {
     }
 
@@ -144,8 +143,10 @@ final readonly class ShippingMethodLeadTimes
      * Assigns each shipping method a delivery time of exactly that many minutes: an existing one
      * with unit minute and min = max = the minutes, else a new one named "<n> Minuten" (German
      * languages) or "<n> minutes" (all others). Existing delivery times are never changed, since
-     * other shipping methods or products may use them. Runs in a system context: the staff roles
-     * may change lead times through the settings route without write access to shipping methods.
+     * other shipping methods or products may use them. The method's previous delivery time is
+     * remembered for deactivating the plugin (MinuteDeliveryTimes). The shipping method is written
+     * through the DAL (cache invalidation) in a system context: the staff roles may change lead
+     * times through the settings route without write access to shipping methods.
      *
      * @param array<string, int> $leadTimes minutes by shipping method id
      */
@@ -154,96 +155,27 @@ final readonly class ShippingMethodLeadTimes
         if ($leadTimes === []) {
             return;
         }
-        $context = new Context(new SystemSource());
-        $deliveryTimeIds = $this->minuteDeliveryTimeIds(array_values(array_unique($leadTimes)), $context);
+        $deliveryTimeIds = $this->minuteDeliveryTimes->existing();
+        $locales = null;
+        foreach (array_unique($leadTimes) as $minutes) {
+            if (!isset($deliveryTimeIds[$minutes])) {
+                $locales ??= $this->minuteDeliveryTimes->locales();
+                $deliveryTimeIds[$minutes] = $this->minuteDeliveryTimes->create($minutes, $locales);
+            }
+        }
+        $current = $this->minuteDeliveryTimes->current(array_map('strval', array_keys($leadTimes)));
 
         $updates = [];
         foreach ($leadTimes as $id => $minutes) {
             $updates[] = ['id' => $id, 'deliveryTimeId' => $deliveryTimeIds[$minutes]];
         }
-        $this->shippingMethodRepository->update($updates, $context);
-    }
+        $this->shippingMethodRepository->update($updates, new Context(new SystemSource()));
 
-    /**
-     * Delivery time id by minutes, existing ones first, the missing ones created.
-     *
-     * @param list<int> $minutes
-     *
-     * @return array<int, string>
-     */
-    private function minuteDeliveryTimeIds(array $minutes, Context $context): array
-    {
-        $criteria = new Criteria();
-        $criteria->addFilter(new EqualsFilter('unit', ShippingMethodFulfillment::UNIT_MINUTE));
-        $criteria->addFilter(new EqualsAnyFilter('max', $minutes));
-        $criteria->addSorting(new FieldSorting('createdAt'), new FieldSorting('id'));
-
-        $ids = [];
-        foreach ($this->deliveryTimeRepository->search($criteria, $context)->getEntities() as $deliveryTime) {
-            $max = $deliveryTime->getMax();
-            if ($deliveryTime->getUnit() === ShippingMethodFulfillment::UNIT_MINUTE && $deliveryTime->getMin() === $max && !isset($ids[$max])) {
-                $ids[$max] = $deliveryTime->getId();
-            }
+        foreach ($leadTimes as $id => $minutes) {
+            $before = $current[$id] ?? null;
+            $previous = $before !== null && $before['unit'] !== ShippingMethodFulfillment::UNIT_MINUTE ? $before['id'] : null;
+            $this->minuteDeliveryTimes->remember($id, $previous, $deliveryTimeIds[$minutes]);
         }
-
-        $created = [];
-        $locales = null;
-        foreach ($minutes as $value) {
-            if (isset($ids[$value])) {
-                continue;
-            }
-            $locales ??= $this->locales();
-            $ids[$value] = Uuid::randomHex();
-            $created[] = [
-                'id' => $ids[$value],
-                'unit' => ShippingMethodFulfillment::UNIT_MINUTE,
-                'min' => $value,
-                'max' => $value,
-                'translations' => self::names($value, $locales),
-            ];
-        }
-        if ($created !== []) {
-            $this->deliveryTimeRepository->create($created, $context);
-        }
-
-        return $ids;
-    }
-
-    /**
-     * The locale code of every language by language id; the system language is always included.
-     *
-     * @return array<string, string>
-     */
-    private function locales(): array
-    {
-        /** @var list<array{id: string, locale: string|null}> $rows */
-        $rows = $this->connection->fetchAllAssociative(
-            'SELECT LOWER(HEX(language.id)) AS id, locale.code AS locale
-             FROM language LEFT JOIN locale ON locale.id = COALESCE(language.translation_code_id, language.locale_id)',
-        );
-        $locales = [Defaults::LANGUAGE_SYSTEM => 'en-GB'];
-        foreach ($rows as $row) {
-            $locales[$row['id']] = $row['locale'] ?? '';
-        }
-
-        return $locales;
-    }
-
-    /**
-     * A name for every language, so no language falls back to another language's name.
-     *
-     * @param array<string, string> $locales
-     *
-     * @return array<string, array{name: string}>
-     */
-    private static function names(int $minutes, array $locales): array
-    {
-        $names = [];
-        foreach ($locales as $languageId => $locale) {
-            $names[$languageId] = ['name' => ShippingMethodFulfillment::deliveryTimeName($minutes, $locale)];
-        }
-
-        return $names;
     }
 
     /**
