@@ -6,7 +6,6 @@ namespace ShopBite\Fulfillment;
 
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
-use ShopBite\Service\CustomFieldsInstaller;
 use ShopBite\Staff\BranchBinding;
 use Shopware\Core\Checkout\Shipping\ShippingMethodCollection;
 use Shopware\Core\Checkout\Shipping\ShippingMethodEntity;
@@ -15,26 +14,50 @@ use Shopware\Core\Framework\Api\Context\SystemSource;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsAnyFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Sorting\FieldSorting;
 use Shopware\Core\Framework\Uuid\Uuid;
+use Shopware\Core\System\DeliveryTime\DeliveryTimeCollection;
 
 /**
  * Fulfillment and lead time of the active shipping methods of a sales channel, for the Store
- * API config route and the backoffice settings, and the write of a lead time. A lead time is
- * stored on the shipping method, so it applies to every sales channel that uses the method.
+ * API config route and the backoffice settings, and the write of a lead time. The lead time is the
+ * shipping method's Shopware delivery time (see ShippingMethodFulfillment), so it applies to every
+ * sales channel that uses the method.
  */
 final readonly class ShippingMethodLeadTimes
 {
     /**
      * @param EntityRepository<ShippingMethodCollection> $shippingMethodRepository
+     * @param EntityRepository<DeliveryTimeCollection>   $deliveryTimeRepository
      *
      * @psalm-suppress PossiblyUnusedMethod Constructed by the container
      */
     public function __construct(
         private EntityRepository $shippingMethodRepository,
+        private EntityRepository $deliveryTimeRepository,
         private Connection $connection,
     ) {
+    }
+
+    /**
+     * The lead time of a shipping method, loading its delivery time when the entity comes without
+     * it (the sales channel context loads its shipping method without associations).
+     */
+    public function leadTimeMinutes(ShippingMethodEntity $method, Context $context): int
+    {
+        if ($method->getDeliveryTime() !== null) {
+            return ShippingMethodFulfillment::leadTimeMinutes($method);
+        }
+        // Read as a var: the typed property is uninitialised on an entity built without it.
+        $deliveryTimeId = $method->getVars()['deliveryTimeId'] ?? null;
+        if (!\is_string($deliveryTimeId) || $deliveryTimeId === '') {
+            return ShippingMethodFulfillment::DEFAULT_LEAD_TIME_MINUTES;
+        }
+        $deliveryTime = $this->deliveryTimeRepository->search(new Criteria([$deliveryTimeId]), $context)->getEntities()->first();
+
+        return ShippingMethodFulfillment::deliveryTimeMinutes($deliveryTime) ?? ShippingMethodFulfillment::DEFAULT_LEAD_TIME_MINUTES;
     }
 
     /**
@@ -118,11 +141,11 @@ final readonly class ShippingMethodLeadTimes
     }
 
     /**
-     * Writes the lead times (custom fields are merged, other fields stay) into every existing
-     * translation of the method: custom fields are translated and the value of the channel
-     * language wins over the system language, so a value left in any language would shadow the
-     * change. Runs in a system context: the staff roles may change lead times through the
-     * settings route without write access to shipping methods.
+     * Assigns each shipping method a delivery time of exactly that many minutes: an existing one
+     * with unit minute and min = max = the minutes, else a new one named "<n> Minuten" (German
+     * languages) or "<n> minutes" (all others). Existing delivery times are never changed, since
+     * other shipping methods or products may use them. Runs in a system context: the staff roles
+     * may change lead times through the settings route without write access to shipping methods.
      *
      * @param array<string, int> $leadTimes minutes by shipping method id
      */
@@ -131,28 +154,96 @@ final readonly class ShippingMethodLeadTimes
         if ($leadTimes === []) {
             return;
         }
-        /** @var list<array{shipping_method_id: string, language_id: string}> $rows */
-        $rows = $this->connection->fetchAllAssociative(
-            'SELECT LOWER(HEX(shipping_method_id)) AS shipping_method_id, LOWER(HEX(language_id)) AS language_id
-             FROM shipping_method_translation WHERE shipping_method_id IN (:ids)',
-            ['ids' => array_map(Uuid::fromHexToBytes(...), array_keys($leadTimes))],
-            ['ids' => ArrayParameterType::BINARY],
-        );
-        $languagesByMethod = [];
-        foreach ($rows as $row) {
-            $languagesByMethod[$row['shipping_method_id']][] = $row['language_id'];
-        }
+        $context = new Context(new SystemSource());
+        $deliveryTimeIds = $this->minuteDeliveryTimeIds(array_values(array_unique($leadTimes)), $context);
 
         $updates = [];
         foreach ($leadTimes as $id => $minutes) {
-            $translations = [];
-            // The system language always (it is required); every other existing translation too.
-            foreach (array_unique([Defaults::LANGUAGE_SYSTEM, ...$languagesByMethod[$id] ?? []]) as $languageId) {
-                $translations[$languageId] = ['customFields' => [CustomFieldsInstaller::SHOPBITE_LEAD_TIME_MINUTES => $minutes]];
-            }
-            $updates[] = ['id' => $id, 'translations' => $translations];
+            $updates[] = ['id' => $id, 'deliveryTimeId' => $deliveryTimeIds[$minutes]];
         }
-        $this->shippingMethodRepository->update($updates, new Context(new SystemSource()));
+        $this->shippingMethodRepository->update($updates, $context);
+    }
+
+    /**
+     * Delivery time id by minutes, existing ones first, the missing ones created.
+     *
+     * @param list<int> $minutes
+     *
+     * @return array<int, string>
+     */
+    private function minuteDeliveryTimeIds(array $minutes, Context $context): array
+    {
+        $criteria = new Criteria();
+        $criteria->addFilter(new EqualsFilter('unit', ShippingMethodFulfillment::UNIT_MINUTE));
+        $criteria->addFilter(new EqualsAnyFilter('max', $minutes));
+        $criteria->addSorting(new FieldSorting('createdAt'), new FieldSorting('id'));
+
+        $ids = [];
+        foreach ($this->deliveryTimeRepository->search($criteria, $context)->getEntities() as $deliveryTime) {
+            $max = $deliveryTime->getMax();
+            if ($deliveryTime->getUnit() === ShippingMethodFulfillment::UNIT_MINUTE && $deliveryTime->getMin() === $max && !isset($ids[$max])) {
+                $ids[$max] = $deliveryTime->getId();
+            }
+        }
+
+        $created = [];
+        $locales = null;
+        foreach ($minutes as $value) {
+            if (isset($ids[$value])) {
+                continue;
+            }
+            $locales ??= $this->locales();
+            $ids[$value] = Uuid::randomHex();
+            $created[] = [
+                'id' => $ids[$value],
+                'unit' => ShippingMethodFulfillment::UNIT_MINUTE,
+                'min' => $value,
+                'max' => $value,
+                'translations' => self::names($value, $locales),
+            ];
+        }
+        if ($created !== []) {
+            $this->deliveryTimeRepository->create($created, $context);
+        }
+
+        return $ids;
+    }
+
+    /**
+     * The locale code of every language by language id; the system language is always included.
+     *
+     * @return array<string, string>
+     */
+    private function locales(): array
+    {
+        /** @var list<array{id: string, locale: string|null}> $rows */
+        $rows = $this->connection->fetchAllAssociative(
+            'SELECT LOWER(HEX(language.id)) AS id, locale.code AS locale
+             FROM language LEFT JOIN locale ON locale.id = COALESCE(language.translation_code_id, language.locale_id)',
+        );
+        $locales = [Defaults::LANGUAGE_SYSTEM => 'en-GB'];
+        foreach ($rows as $row) {
+            $locales[$row['id']] = $row['locale'] ?? '';
+        }
+
+        return $locales;
+    }
+
+    /**
+     * A name for every language, so no language falls back to another language's name.
+     *
+     * @param array<string, string> $locales
+     *
+     * @return array<string, array{name: string}>
+     */
+    private static function names(int $minutes, array $locales): array
+    {
+        $names = [];
+        foreach ($locales as $languageId => $locale) {
+            $names[$languageId] = ['name' => ShippingMethodFulfillment::deliveryTimeName($minutes, $locale)];
+        }
+
+        return $names;
     }
 
     /**
@@ -163,6 +254,7 @@ final readonly class ShippingMethodLeadTimes
         $criteria = new Criteria();
         $criteria->addFilter(new EqualsFilter('salesChannels.id', $salesChannelId));
         $criteria->addFilter(new EqualsFilter('active', true));
+        $criteria->addAssociation('deliveryTime');
         $criteria->addSorting(new FieldSorting('position'), new FieldSorting('name'));
 
         return array_values($this->shippingMethodRepository->search($criteria, $context)->getEntities()->getElements());

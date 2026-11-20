@@ -21,6 +21,7 @@ use Shopware\Core\Defaults;
 use Shopware\Core\Framework\Api\Context\AdminApiSource;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\System\DeliveryTime\DeliveryTimeCollection;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -54,6 +55,9 @@ class RestaurantSettingsTest extends TestCase
     /** @var EntityRepository<ShippingMethodCollection>&MockObject */
     private EntityRepository&MockObject $shippingMethods;
 
+    /** @var EntityRepository<DeliveryTimeCollection>&MockObject */
+    private EntityRepository&MockObject $deliveryTimes;
+
     private Connection&MockObject $assignments;
 
     private SettingsRoute $route;
@@ -66,6 +70,8 @@ class RestaurantSettingsTest extends TestCase
         $this->connection = $this->createMock(Connection::class);
         $this->shippingMethods = $this->createMock(EntityRepository::class);
         $this->shippingMethods->method('search')->willReturn(ShippingMethodLeadTimesTest::searchResult(ShippingMethodLeadTimesTest::methods()));
+        $this->deliveryTimes = $this->createMock(EntityRepository::class);
+        $this->deliveryTimes->method('search')->willReturn(ShippingMethodLeadTimesTest::deliveryTimeResult([]));
         $this->assignments = $this->createMock(Connection::class);
         $this->connection->method('transactional')->willReturnCallback(function (\Closure $writes): mixed {
             $this->inTransaction = true;
@@ -79,7 +85,7 @@ class RestaurantSettingsTest extends TestCase
             new RestaurantSettings($this->systemConfig),
             $this->connection,
             new BranchBinding($this->connection),
-            new ShippingMethodLeadTimes($this->shippingMethods, $this->assignments),
+            new ShippingMethodLeadTimes($this->shippingMethods, $this->deliveryTimes, $this->assignments),
         );
     }
 
@@ -171,6 +177,13 @@ class RestaurantSettingsTest extends TestCase
         $this->assigned([ShippingMethodLeadTimesTest::DELIVERY => [self::CHANNEL, self::OTHER_CHANNEL], ShippingMethodLeadTimesTest::PICKUP => [self::CHANNEL]]);
         $this->systemConfig->expects($this->once())->method('set')
             ->willReturnCallback(fn () => static::assertTrue($this->inTransaction));
+        $this->deliveryTimes->expects($this->once())->method('create')
+            ->with($this->callback(static fn (array $created): bool => array_column($created, 'max') === [50, 15]))
+            ->willReturnCallback(function () {
+                static::assertTrue($this->inTransaction);
+
+                return $this->createStub(\Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenContainerEvent::class);
+            });
         $this->shippingMethods->expects($this->once())->method('update')
             ->with($this->callback(static fn (array $updates): bool => array_column($updates, 'id') === [ShippingMethodLeadTimesTest::DELIVERY, ShippingMethodLeadTimesTest::PICKUP]))
             ->willReturnCallback(function () {
@@ -341,8 +354,8 @@ class RestaurantSettingsTest extends TestCase
                 $rows[] = ['shipping_method_id' => $method, 'sales_channel_id' => $channel];
             }
         }
-        $this->assignments->method('fetchAllAssociative')->willReturnCallback(static fn (string $sql, array $params): array => str_contains($sql, 'shipping_method_translation')
-            ? array_map(static fn (string $id): array => ['shipping_method_id' => bin2hex($id), 'language_id' => Defaults::LANGUAGE_SYSTEM], $params['ids'])
+        $this->assignments->method('fetchAllAssociative')->willReturnCallback(static fn (string $sql, array $params = []): array => str_contains($sql, 'FROM language')
+            ? [['id' => Defaults::LANGUAGE_SYSTEM, 'locale' => 'de-DE']]
             : array_values(array_filter(
                 $rows,
                 static fn (array $row): bool => \in_array(hex2bin($row['shipping_method_id']), $params['ids'], true),

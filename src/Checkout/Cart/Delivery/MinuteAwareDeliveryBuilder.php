@@ -25,8 +25,8 @@ use Shopware\Core\System\SalesChannel\SalesChannelContext;
  * uses a delivery time in minutes. Since DeliveryDate normalises every date to 16:00 the
  * exact minute count cannot be represented anyway, so minute-based delivery times are
  * converted to the next full hour for the duration of the core calculation only. The
- * original delivery information on the line items is restored afterwards so the cart and
- * Store API keep reporting the configured unit.
+ * original delivery information on the line items and the original shipping method on the
+ * deliveries are restored afterwards so the cart and Store API keep reporting the configured unit.
  *
  * @psalm-api
  */
@@ -62,11 +62,17 @@ final class MinuteAwareDeliveryBuilder extends DeliveryBuilder
         $restore = $this->replaceMinuteDeliveryTimes($cart);
 
         try {
-            return $this->inner->buildByUsingShippingMethod(
+            $deliveries = $this->inner->buildByUsingShippingMethod(
                 $cart,
                 $this->withHourBasedDeliveryTime($shippingMethod),
                 $context
             );
+            // The deliveries keep the configured shipping method, so the cart reports minutes.
+            foreach ($deliveries as $delivery) {
+                $delivery->setShippingMethod($shippingMethod);
+            }
+
+            return $deliveries;
         } finally {
             foreach ($restore as [$information, $deliveryTime]) {
                 $information->setDeliveryTime($deliveryTime);

@@ -360,7 +360,7 @@
           },
           "shippingMethods": {
             "type": "array",
-            "description": "The active shipping methods of the sales channel with fulfillment and lead time (shipping method custom fields shopbite_fulfillment and shopbite_lead_time_minutes; without a value: delivery and 30 minutes)",
+            "description": "The active shipping methods of the sales channel with fulfillment and lead time (fulfillment: shipping method custom field shopbite_fulfillment, without a value delivery; lead time: the maximum of the shipping method's delivery time in minutes, clamped to 1..1440, without one 30 minutes)",
             "items": {
               "type": "object",
               "properties": {

@@ -17,7 +17,7 @@ The ShopBite plugin extends Shopware 6 with specialized features tailored for th
     - Dish line items (`type: container`): the product as first child, extras as further product children. The plugin validates the structure (product children with product ids, at most 30) and sets label and product number from the products; the ingredients to leave out come from `payload.without` (at most 20 names of up to 100 characters) or the `-<ingredient>` parts of the label, and only options of the product's property group "Hauptzutaten" are kept. Dishes carry no receipt print type, so the printer prints their label.
     - Receipt print type processing for specialized fulfillment workflows.
     - Ordering window: a cart validator blocks Store API orders while ordering is paused for the sales channel (`isCheckoutEnabled`), on holidays and when no opening interval of today ends after now plus the lead time of the cart's shipping method (orders for later today are allowed, intervals past midnight count). Time zone: the sales channel's business time zone (Shopware 6.7.13+), else Europe/Berlin. Cart error keys: `shopbite-ordering-paused`, `shopbite-ordering-holiday`, `shopbite-ordering-closed`.
-- **Delivery and pickup**: each shipping method carries its fulfillment and lead time, see [Delivery and pickup](#delivery-and-pickup).
+- **Delivery and pickup**: each shipping method carries its fulfillment (custom field) and lead time (its Shopware delivery time), see [Delivery and pickup](#delivery-and-pickup).
 - **Headless Optimized**: Designed from the ground up to work with the ShopBite Nuxt storefront and the Shopware Store API.
 
 ## Integration
@@ -69,12 +69,12 @@ Ordering on/off and the lead times go through `GET/PATCH /api/_action/shopbite/s
   "menuCategoryId": "<id>",
   "shippingMethods": [
     {"id": "<id>", "name": "Lieferung", "fulfillment": "delivery", "leadTimeMinutes": 45, "leadTimeMinutesSet": true, "editable": true},
-    {"id": "<id>", "name": "Abholung", "fulfillment": "pickup", "leadTimeMinutes": 30, "leadTimeMinutesSet": false, "editable": false}
+    {"id": "<id>", "name": "Abholung", "fulfillment": "pickup", "leadTimeMinutes": 20, "leadTimeMinutesSet": true, "editable": false}
   ]
 }
 ```
 
-`orderingOpen` is the channel value with the global value as fallback, `menuCategoryId` the menu root from the plugin configuration (per sales channel, else its navigation category, also returned by `/store-api/shopbite/config`), `shippingMethods` the channel's active shipping methods (see [Delivery and pickup](#delivery-and-pickup); `leadTimeMinutesSet: false` = the default of 30 minutes applies; `editable` = the requesting user may change the lead time, i.e. not bound to branches or every sales channel of the method is one of their branches). `PATCH` accepts `{"orderingOpen"?: bool, "leadTimes"?: {"<shippingMethodId>": minutes}}` (minutes 1 to 1440, only shipping methods assigned to this sales channel, else 400) and answers with the new read; ordering switch and lead times are written in one transaction. A lead time is stored on the shipping method (in every translation of it, because custom fields are translated), so it changes for **every** sales channel that uses the method.
+`orderingOpen` is the channel value with the global value as fallback, `menuCategoryId` the menu root from the plugin configuration (per sales channel, else its navigation category, also returned by `/store-api/shopbite/config`), `shippingMethods` the channel's active shipping methods (see [Delivery and pickup](#delivery-and-pickup); `leadTimeMinutesSet: false` = the method has no delivery time of a known unit and the default of 30 minutes applies; `editable` = the requesting user may change the lead time, i.e. not bound to branches or every sales channel of the method is one of their branches). `PATCH` accepts `{"orderingOpen"?: bool, "leadTimes"?: {"<shippingMethodId>": minutes}}` (minutes 1 to 1440, only shipping methods assigned to this sales channel, else 400) and answers with the new read; ordering switch and lead times are written in one transaction. A lead time is the delivery time of the shipping method (see [Delivery and pickup](#delivery-and-pickup) for how it is assigned), so it changes for **every** sales channel that uses the method.
 
 Accounts are managed on the command line (`--help` on each command):
 
@@ -89,14 +89,21 @@ Staff need at least one branch; management without a branch sees all. Branches a
 
 ## Delivery and pickup
 
-A shop has a shipping method for delivery and one for pickup. Each carries two custom fields (set `shopbite_shipping_method_set`, *Settings > Shipping* in the administration):
+A shop has a shipping method for delivery and one for pickup. Two things matter for each (*Settings > Shipping* in the administration, German *Einstellungen > Versand > Versandarten*):
 
-| Field | Type | Without a value |
+| What | Where | Without a value |
 | --- | --- | --- |
-| `shopbite_fulfillment` | select `delivery` \| `pickup` | `delivery` |
-| `shopbite_lead_time_minutes` | int, 1 to 1440: minutes until delivered or ready for pickup | 30 |
+| Fulfillment | custom field `shopbite_fulfillment` (set `shopbite_shipping_method_set`), select `delivery` \| `pickup` | `delivery` |
+| Lead time: minutes until delivered or ready for pickup | the shipping method's Shopware **delivery time** (*Lieferzeit*) | 30 minutes |
 
-Nothing else is read: the name of a method does not matter at runtime. The plugin update that introduced the fields filled them once for existing shipping methods, only where a value was empty or invalid: pickup when the technical name or a name contains "abhol", "pickup" or "selbst", else delivery; the lead time from the former plugin setting *Default Delivery Time* (the values set on the method's sales channels when they agree, else the global value, else 30). The values are written into every translation of the method, and the former setting is deleted.
+The lead time is the **maximum** of the delivery time converted to minutes (unit minute ×1, hour ×60, day ×1440, week, month and year accordingly) and clamped to 1 to 1440 minutes, so "0-1 hour" is 60 and Shopware's default "1-3 days" is 1440. A delivery time of an unknown unit counts as 30 minutes. Shopware has no minute unit; the plugin adds it to the delivery time form in the administration (*Settings > Delivery times*, unit *Minute*) and to the cart's delivery date calculation, which rounds minutes up to full hours internally (core only knows hours to years) while the cart keeps reporting the configured minutes. Nothing else is read: the name of a method does not matter at runtime.
+
+When the backoffice sets a lead time of X minutes (settings route below), the method gets a delivery time with unit minute and min = max = X: an existing one if there is one, else a new one named "X Minuten" in German languages and "X minutes" in all others. Existing delivery times are never changed, because other shipping methods (or products) may use them; a delivery time shared by two methods stays as it is when the lead time of one of them changes.
+
+Plugin updates from older versions migrate existing shipping methods once:
+
+- Fulfillment, only where it is empty or invalid: pickup when the technical name or a name contains "abhol", "pickup" or "selbst", else delivery; written into every translation of the method.
+- Lead time: every method whose delivery time is not minute based (Shopware's "1-3 days", a "0-1 hour", ...) gets a minute delivery time with the value of the former plugin setting *Default Delivery Time* (the values set on the method's sales channels when they agree, else the global value, else 30). Methods that already have a minute delivery time keep it. The former setting is deleted. A value of the custom field `shopbite_lead_time_minutes` of an unreleased development version wins over the setting; the field and its values are removed.
 
 `/store-api/shopbite/config` returns the active shipping methods of the sales channel:
 

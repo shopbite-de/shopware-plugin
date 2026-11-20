@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace ShopBite\Tests\Unit\Checkout\Cart\Ordering;
 
+use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -16,8 +17,11 @@ use ShopBite\Checkout\Cart\Ordering\OrderingClosedError;
 use ShopBite\Checkout\Cart\Ordering\OrderingWindow;
 use ShopBite\Checkout\Cart\Ordering\OrderingWindowValidator;
 use ShopBite\Fulfillment\ShippingMethodFulfillment;
+use ShopBite\Fulfillment\ShippingMethodLeadTimes;
 use ShopBite\Holiday\HolidayCollection;
 use ShopBite\Settings\RestaurantSettings;
+use ShopBite\Tests\Unit\Fulfillment\ShippingMethodFulfillmentTest;
+use ShopBite\Tests\Unit\Fulfillment\ShippingMethodLeadTimesTest;
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\Error\ErrorCollection;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
@@ -30,6 +34,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
+use Shopware\Core\System\DeliveryTime\DeliveryTimeEntity;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Shopware\Core\System\SalesChannel\SalesChannelEntity;
 use Shopware\Core\System\SystemConfig\SystemConfigService;
@@ -37,6 +42,7 @@ use Shopware\Core\System\SystemConfig\SystemConfigService;
 #[CoversClass(OrderingWindowValidator::class)]
 #[CoversClass(OrderingClosedError::class)]
 #[UsesClass(ShippingMethodFulfillment::class)]
+#[UsesClass(ShippingMethodLeadTimes::class)]
 #[AllowMockObjectsWithoutExpectations]
 class OrderingWindowValidatorTest extends TestCase
 {
@@ -52,6 +58,9 @@ class OrderingWindowValidatorTest extends TestCase
 
     /** @var array<string, mixed> */
     private array $config = [];
+
+    /** @var list<DeliveryTimeEntity> what the delivery time repository finds */
+    private array $deliveryTimes = [];
 
     protected function setUp(): void
     {
@@ -92,8 +101,19 @@ class OrderingWindowValidatorTest extends TestCase
     public function testLeadTimeOfTheSelectedShippingMethodIsUsed(): void
     {
         // 20:30 UTC = 21:30 Berlin; 60 minutes delivery ends after 22:00, 15 minutes pickup before.
-        $this->assertBlockedWith(OrderingWindow::CLOSED, $this->validate('2026-11-16 20:30 UTC', shippingMethod: $this->shippingMethod(['shopbite_fulfillment' => 'delivery', 'shopbite_lead_time_minutes' => 60])));
-        $this->assertCount(0, $this->validate('2026-11-16 20:30 UTC', shippingMethod: $this->shippingMethod(['shopbite_fulfillment' => 'pickup', 'shopbite_lead_time_minutes' => 15])));
+        $this->assertBlockedWith(OrderingWindow::CLOSED, $this->validate('2026-11-16 20:30 UTC', shippingMethod: $this->shippingMethod(ShippingMethodFulfillmentTest::deliveryTime('minute', 45, 60))));
+        $this->assertCount(0, $this->validate('2026-11-16 20:30 UTC', shippingMethod: $this->shippingMethod(ShippingMethodFulfillmentTest::deliveryTime('minute', 15, 15))));
+        $this->assertBlockedWith(OrderingWindow::CLOSED, $this->validate('2026-11-16 20:30 UTC', shippingMethod: $this->shippingMethod(ShippingMethodFulfillmentTest::deliveryTime('hour', 0, 1))));
+    }
+
+    public function testDeliveryTimeIsLoadedWhenTheContextHasNone(): void
+    {
+        // The sales channel context loads its shipping method without the delivery time association.
+        $method = $this->shippingMethod(null);
+        $method->setDeliveryTimeId('0190000000007000800000000000f001');
+        $this->deliveryTimes = [ShippingMethodFulfillmentTest::deliveryTime('minute', 60, 60)];
+
+        $this->assertBlockedWith(OrderingWindow::CLOSED, $this->validate('2026-11-16 20:30 UTC', shippingMethod: $method));
     }
 
     public function testShippingMethodWithoutLeadTimeTakes30Minutes(): void
@@ -182,8 +202,12 @@ class OrderingWindowValidatorTest extends TestCase
         $clock = $this->createStub(ClockInterface::class);
         $clock->method('now')->willReturn(new \DateTimeImmutable($now));
 
+        $deliveryTimes = $this->createStub(EntityRepository::class);
+        $deliveryTimes->method('search')->willReturn(ShippingMethodLeadTimesTest::deliveryTimeResult($this->deliveryTimes));
+
         $validator = new OrderingWindowValidator(
             new RestaurantSettings($this->systemConfig),
+            new ShippingMethodLeadTimes($this->createStub(EntityRepository::class), $deliveryTimes, $this->createStub(Connection::class)),
             $this->businessHours,
             $this->holidays,
             $clock,
@@ -195,15 +219,15 @@ class OrderingWindowValidatorTest extends TestCase
         return $errors;
     }
 
-    /**
-     * @param array<string, mixed>|null $customFields
-     */
-    private function shippingMethod(?array $customFields): ShippingMethodEntity
+    private function shippingMethod(?DeliveryTimeEntity $deliveryTime): ShippingMethodEntity
     {
         $method = new ShippingMethodEntity();
         $method->setId('0190000000007000800000000000d001');
         $method->setTechnicalName('shipping_standard');
-        $method->setCustomFields($customFields);
+        if ($deliveryTime !== null) {
+            $method->setDeliveryTime($deliveryTime);
+            $method->setDeliveryTimeId($deliveryTime->getId());
+        }
 
         return $method;
     }

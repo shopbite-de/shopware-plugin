@@ -82,6 +82,22 @@ class MinuteAwareDeliveryBuilderTest extends TestCase
         $this->assertSame('minute', $shippingMethod->getDeliveryTime()?->getUnit());
     }
 
+    public function testDeliveriesCarryTheOriginalShippingMethod(): void
+    {
+        // The cart (Store API) reports the configured minutes, not the hours used for the date.
+        $entity = new DeliveryTimeEntity();
+        $entity->setId('delivery-time-id');
+        $entity->setUnit('minute');
+        $entity->setMin(20);
+        $entity->setMax(20);
+        $shippingMethod = $this->createShippingMethod($entity);
+
+        $deliveries = $this->createBuilder()->buildByUsingShippingMethod($this->createCart(null), $shippingMethod, $this->createContext());
+
+        $this->assertSame($shippingMethod, $deliveries->first()?->getShippingMethod());
+        $this->assertSame(20, $deliveries->first()->getShippingMethod()->getDeliveryTime()?->getMax());
+    }
+
     public function testOriginalLineItemDeliveryTimeIsRestored(): void
     {
         $deliveryTime = $this->createMinuteDeliveryTime(30, 45);

@@ -37,8 +37,6 @@ final readonly class CustomFieldsInstaller
     private const string SHIPPING_METHOD_CUSTOM_FIELDSET_NAME = 'shopbite_shipping_method_set';
     /** delivery | pickup, see ShippingMethodFulfillment. */
     public const string SHOPBITE_FULFILLMENT = 'shopbite_fulfillment';
-    /** Minutes until delivered or ready for pickup, see ShippingMethodFulfillment. */
-    public const string SHOPBITE_LEAD_TIME_MINUTES = 'shopbite_lead_time_minutes';
 
     private const array CUSTOM_FIELDSET = [
         'id' => '0198be8b24a0722cac46b07e3a80f49b',
@@ -343,30 +341,6 @@ final readonly class CustomFieldsInstaller
                         ],
                     ],
                     'customFieldPosition' => 1,
-                ],
-            ],
-            [
-                'id' => 'ac7a0783eff6445c9bc81ea0b17547ec',
-                'name' => self::SHOPBITE_LEAD_TIME_MINUTES,
-                'type' => CustomFieldTypes::INT,
-                'config' => [
-                    'label' => [
-                        'en-GB' => 'Lead time (minutes)',
-                        'de-DE' => 'Vorlaufzeit (Minuten)',
-                        Defaults::LANGUAGE_SYSTEM => 'Lead time (minutes)',
-                    ],
-                    'helpText' => [
-                        'en-GB' => 'Minutes until the order is delivered or ready for pickup (1 to 1440). Without a value 30 minutes apply. Applies to every sales channel using this shipping method.',
-                        'de-DE' => 'Minuten, bis die Bestellung geliefert oder abholbereit ist (1 bis 1440). Ohne Wert gelten 30 Minuten. Gilt für jeden Verkaufskanal mit dieser Versandart.',
-                        Defaults::LANGUAGE_SYSTEM => 'Minutes until the order is delivered or ready for pickup (1 to 1440). Without a value 30 minutes apply. Applies to every sales channel using this shipping method.',
-                    ],
-                    'componentName' => 'sw-field',
-                    'type' => 'number',
-                    'numberType' => 'int',
-                    'customFieldType' => 'number',
-                    'min' => 1,
-                    'max' => 1440,
-                    'customFieldPosition' => 2,
                 ],
             ],
         ],
