@@ -147,6 +147,22 @@ class Migration1795651200ShippingMethodDeliveryTimeTest extends TestCase
         $this->assertSame([], $this->customFieldUpdates());
     }
 
+    public function testWhileThePluginIsInactiveTheConversionIsOnlyPlanned(): void
+    {
+        // Install (migrations run before activate) or update of an inactive plugin: core cannot
+        // calculate carts with minutes, so activate() assigns the planned delivery times.
+        $this->migrate(
+            methods: [['id' => self::PICKUP, 'delivery_time_id' => self::HOUR_RANGE, 'unit' => 'hour']],
+            translations: [],
+            active: false,
+        );
+
+        $created = $this->createdDeliveryTimes();
+        $this->assertSame([40], array_column($created, 'max'));
+        $this->assertSame([], $this->assignedDeliveryTimes());
+        $this->assertSame([self::PICKUP => [self::HOUR_RANGE, $created[0]['id']]], $this->remembered());
+    }
+
     public function testMethodWithoutDeliveryTimeGetsOne(): void
     {
         $this->migrate(
@@ -164,7 +180,7 @@ class Migration1795651200ShippingMethodDeliveryTimeTest extends TestCase
      * @param list<array{id: string, language_id: string, custom_fields: string|null}>   $translations
      * @param list<array{sales_channel_id: string|null, value: string}>|null              $settings
      */
-    private function migrate(array $methods, array $translations, ?array $settings = null): void
+    private function migrate(array $methods, array $translations, ?array $settings = null, bool $active = true): void
     {
         $settings ??= [
             ['sales_channel_id' => null, 'value' => '{"_value": 40}'],
@@ -191,6 +207,10 @@ class Migration1795651200ShippingMethodDeliveryTimeTest extends TestCase
                 ['id' => self::GERMAN, 'locale' => 'de-DE'],
             ],
             default => throw new \LogicException($sql),
+        });
+        $connection->method('fetchOne')->willReturnCallback(static fn (string $sql): mixed => match (true) {
+            str_contains($sql, 'FROM plugin') => $active ? '1' : '0',
+            default => false,
         });
         $connection->method('executeStatement')->willReturnCallback(function (string $sql, array $params = []): int {
             $this->statements[] = [$sql, $params];

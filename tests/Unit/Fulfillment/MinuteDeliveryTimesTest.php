@@ -33,6 +33,10 @@ class MinuteDeliveryTimesTest extends TestCase
     /** @var array<string, list<array<string, mixed>>> rows by a part of the query */
     private array $rows = [];
 
+    private bool $table = true;
+
+    private ?\Closure $onQuery = null;
+
     public function testLocalesOfAllLanguagesWithTheSystemLanguage(): void
     {
         $this->rows['FROM language'] = [['id' => self::GERMAN, 'locale' => 'de-DE']];
@@ -82,30 +86,65 @@ class MinuteDeliveryTimesTest extends TestCase
         $this->assertNull($this->statements[1][1]['previous']);
     }
 
-    public function testDeactivateRestoresThePreviousDeliveryTimes(): void
+    public function testDeactivateKeepsTheCurrentMinuteDeliveryTimeAndRestoresThePreviousOne(): void
     {
         $this->service()->deactivate();
 
-        $this->assertCount(1, $this->statements);
-        [$sql] = $this->statements[0];
-        $this->assertStringContainsString('SET shipping_method.delivery_time_id = remembered.previous_delivery_time_id', $sql);
-        $this->assertStringContainsString("delivery_time.unit = 'minute'", $sql);
+        // first the current minute delivery time (also one changed in the Admin) is remembered for
+        // activate(), then the previous one is put back: two statements, no assignment order risk
+        $this->assertCount(2, $this->statements);
+        [$remember, $restore] = $this->statements;
+        $this->assertStringStartsWith('UPDATE shopbite_shipping_method_delivery_time', ltrim($remember[0]));
+        $this->assertStringContainsString('SET remembered.minute_delivery_time_id = shipping_method.delivery_time_id', $remember[0]);
+        $this->assertStringContainsString("delivery_time.unit = 'minute'", $remember[0]);
+        $this->assertStringContainsString('SET shipping_method.delivery_time_id = remembered.previous_delivery_time_id', $restore[0]);
+        $this->assertStringContainsString('shipping_method.updated_at = :now', $restore[0]);
+        $this->assertStringContainsString("delivery_time.unit = 'minute'", $restore[0]);
     }
 
     public function testDeactivateIsRefusedWhileOtherShippingMethodsOrProductsUseMinutes(): void
     {
-        $this->rows['FROM shipping_method'] = [['name' => 'Kurier']];
-        $this->rows['FROM product'] = [['name' => 'P1']];
+        $this->rows['FROM shipping_method'] = [['name' => 'Kurier', 'total' => 1]];
+        $this->rows['FROM product'] = [['name' => 'P1', 'total' => 23]];
 
         try {
             $this->service()->deactivate();
             $this->fail('deactivate must be refused');
         } catch (MinuteDeliveryTimesException $exception) {
+            $this->assertStringStartsWith('ShopBite cannot be deactivated', $exception->getMessage());
             $this->assertStringContainsString('shipping method "Kurier"', $exception->getMessage());
-            $this->assertStringContainsString('product "P1"', $exception->getMessage());
+            $this->assertStringContainsString('product "P1", 22 more products', $exception->getMessage());
             $this->assertStringContainsString('unit hour, day, week, month or year', $exception->getMessage());
         }
         $this->assertSame([], $this->statements, 'nothing is changed when refused');
+    }
+
+    public function testUninstallCheckNamesTheUninstall(): void
+    {
+        $this->rows['FROM product'] = [['name' => 'P1', 'total' => 1]];
+
+        $this->expectException(MinuteDeliveryTimesException::class);
+        $this->expectExceptionMessage('ShopBite cannot be uninstalled');
+
+        $this->service()->assertNotInUse('uninstalled');
+    }
+
+    public function testWithoutTheTableEveryMinuteShippingMethodBlocksAndNothingIsRestored(): void
+    {
+        $this->table = false;
+        $queries = [];
+        $this->rows['FROM shipping_method'] = [];
+        $this->onQuery = static function (string $sql) use (&$queries): void {
+            $queries[] = $sql;
+        };
+
+        $this->service()->deactivate();
+        $this->service()->activate();
+
+        $this->assertSame([], $this->statements);
+        foreach ($queries as $sql) {
+            $this->assertStringNotContainsString('shopbite_shipping_method_delivery_time', $sql);
+        }
     }
 
     public function testActivateReassignsTheMinuteDeliveryTimes(): void
@@ -114,6 +153,7 @@ class MinuteDeliveryTimesTest extends TestCase
 
         $this->assertCount(1, $this->statements);
         $this->assertStringContainsString('SET shipping_method.delivery_time_id = remembered.minute_delivery_time_id', $this->statements[0][0]);
+        $this->assertStringContainsString('shipping_method.updated_at = :now', $this->statements[0][0]);
         $this->assertStringContainsString('shipping_method.delivery_time_id = remembered.previous_delivery_time_id', $this->statements[0][0]);
     }
 
@@ -127,7 +167,11 @@ class MinuteDeliveryTimesTest extends TestCase
     private function service(): MinuteDeliveryTimes
     {
         $connection = $this->createStub(Connection::class);
+        $connection->method('fetchOne')->willReturnCallback(fn (string $sql): mixed => str_contains($sql, 'SHOW TABLES') && $this->table ? 'shopbite_shipping_method_delivery_time' : false);
         $connection->method('fetchAllAssociative')->willReturnCallback(function (string $sql): array {
+            if ($this->onQuery !== null) {
+                ($this->onQuery)($sql);
+            }
             foreach ($this->rows as $part => $rows) {
                 if (str_contains($sql, $part)) {
                     return $rows;

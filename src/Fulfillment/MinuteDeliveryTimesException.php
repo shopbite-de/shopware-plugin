@@ -11,14 +11,16 @@ namespace ShopBite\Fulfillment;
 final class MinuteDeliveryTimesException extends \RuntimeException
 {
     /**
-     * @param list<string> $blockers
+     * @param 'deactivated'|'uninstalled' $action
+     * @param list<string>                $blockers
      */
-    public static function stillInUse(array $blockers): self
+    public static function stillInUse(string $action, array $blockers): self
     {
         return new self(\sprintf(
-            'ShopBite cannot be deactivated: Shopware does not know the delivery time unit "minute", so carts with it would fail. '
+            'ShopBite cannot be %s: Shopware does not know the delivery time unit "minute", so carts with it would fail. '
             . 'Still using a delivery time in minutes: %s. Give them a delivery time with unit hour, day, week, month or year '
             . '(shipping methods: Settings > Shipping > Delivery time, products: Deliverability > Delivery time), then try again.',
+            $action,
             implode(', ', $blockers),
         ));
     }
