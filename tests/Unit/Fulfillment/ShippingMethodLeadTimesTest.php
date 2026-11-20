@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use ShopBite\Fulfillment\MinuteDeliveryTimes;
 use ShopBite\Fulfillment\ShippingMethodFulfillment;
 use ShopBite\Fulfillment\ShippingMethodLeadTimes;
 use Shopware\Core\Checkout\Shipping\ShippingMethodCollection;
@@ -20,7 +21,6 @@ use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
-use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsAnyFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\Uuid\Uuid;
 use Shopware\Core\System\DeliveryTime\DeliveryTimeCollection;
@@ -28,6 +28,7 @@ use Shopware\Core\System\DeliveryTime\DeliveryTimeEntity;
 
 #[CoversClass(ShippingMethodLeadTimes::class)]
 #[UsesClass(ShippingMethodFulfillment::class)]
+#[UsesClass(MinuteDeliveryTimes::class)]
 #[AllowMockObjectsWithoutExpectations]
 class ShippingMethodLeadTimesTest extends TestCase
 {
@@ -163,40 +164,29 @@ class ShippingMethodLeadTimesTest extends TestCase
     public function testWriteReusesAnExactMinuteDeliveryTimeAndCreatesTheMissingOnes(): void
     {
         $german = '0190000000007000800000000000e001';
-        $existing = ShippingMethodFulfillmentTest::deliveryTime('minute', 50, 50);
-        $this->connection->method('fetchAllAssociative')->willReturnCallback(static function (string $sql) use ($german): array {
-            static::assertStringContainsString('FROM language', $sql);
-
-            return [
-                ['id' => Defaults::LANGUAGE_SYSTEM, 'locale' => 'en-GB'],
-                ['id' => $german, 'locale' => 'de-DE'],
-            ];
+        $existing = '0190000000007000800000000000f050';
+        $hour = '0190000000007000800000000000f060';
+        $third = '0190000000007000800000000000d003';
+        $statements = [];
+        $this->connection->method('fetchAllAssociative')->willReturnCallback(static fn (string $sql): array => match (true) {
+            str_contains($sql, 'FROM language') => [['id' => $german, 'locale' => 'de-DE']],
+            // a range does not count
+            str_contains($sql, 'FROM delivery_time WHERE unit') => [
+                ['id' => '0190000000007000800000000000f015', 'min' => 10, 'max' => 15],
+                ['id' => $existing, 'min' => 50, 'max' => 50],
+            ],
+            str_contains($sql, 'FROM shipping_method LEFT JOIN delivery_time') => [
+                ['id' => self::DELIVERY, 'delivery_time_id' => $hour, 'unit' => 'hour'],
+                ['id' => self::PICKUP, 'delivery_time_id' => $existing, 'unit' => 'minute'],
+                ['id' => $third, 'delivery_time_id' => $hour, 'unit' => 'hour'],
+            ],
+            default => throw new \LogicException($sql),
         });
-        $this->deliveryTimes->expects($this->once())->method('search')
-            ->with($this->callback(static function (Criteria $criteria): bool {
-                $filters = [];
-                foreach ($criteria->getFilters() as $filter) {
-                    if ($filter instanceof EqualsFilter || $filter instanceof EqualsAnyFilter) {
-                        $filters[$filter->getField()] = $filter->getValue();
-                    }
-                }
+        $this->connection->method('executeStatement')->willReturnCallback(static function (string $sql, array $params = []) use (&$statements): int {
+            $statements[] = [$sql, $params];
 
-                return $filters === ['unit' => 'minute', 'max' => [50, 15]];
-            }), $this->callback(static fn (Context $context): bool => $context->getSource() instanceof SystemSource))
-            // a range and another unit with the same maximum do not count
-            ->willReturn(self::deliveryTimeResult([
-                ShippingMethodFulfillmentTest::deliveryTime('minute', 15, 50),
-                ShippingMethodFulfillmentTest::deliveryTime('hour', 15, 15),
-                $existing,
-            ]));
-        $created = [];
-        $this->deliveryTimes->expects($this->once())->method('create')
-            ->willReturnCallback(function (array $data, Context $context) use (&$created) {
-                static::assertInstanceOf(SystemSource::class, $context->getSource());
-                $created = $data;
-
-                return $this->createStub(\Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenContainerEvent::class);
-            });
+            return 1;
+        });
         // existing delivery times are never changed: they may be shared with other methods
         $this->deliveryTimes->expects($this->never())->method('update');
         $this->deliveryTimes->expects($this->never())->method('upsert');
@@ -209,44 +199,56 @@ class ShippingMethodLeadTimesTest extends TestCase
                 return $this->createStub(\Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenContainerEvent::class);
             });
 
-        $this->service()->write([self::DELIVERY => 50, self::PICKUP => 15, '0190000000007000800000000000d003' => 15]);
+        $this->service()->write([self::DELIVERY => 50, self::PICKUP => 15, $third => 15]);
 
+        $created = array_values(array_filter($statements, static fn (array $statement): bool => str_starts_with($statement[0], 'INSERT INTO delivery_time ')));
         $this->assertCount(1, $created, 'one new delivery time for both methods with 15 minutes');
-        $id = $created[0]['id'];
-        $this->assertIsString($id);
-        $this->assertTrue(Uuid::isValid($id));
+        $id = Uuid::fromBytesToHex((string) $created[0][1]['id']);
+        $this->assertSame([15, 15, 'minute'], [$created[0][1]['min'], $created[0][1]['max'], $created[0][1]['unit']]);
+        $names = [];
+        $remembered = [];
+        foreach ($statements as [$sql, $params]) {
+            if (str_starts_with($sql, 'INSERT INTO delivery_time_translation')) {
+                $names[Uuid::fromBytesToHex((string) $params['language'])] = $params['name'];
+            }
+            if (str_contains($sql, 'INSERT INTO shopbite_shipping_method_delivery_time')) {
+                $remembered[Uuid::fromBytesToHex((string) $params['method'])] = [
+                    $params['previous'] === null ? null : Uuid::fromBytesToHex((string) $params['previous']),
+                    Uuid::fromBytesToHex((string) $params['minute']),
+                ];
+            }
+        }
+        $this->assertSame([Defaults::LANGUAGE_SYSTEM => '15 minutes', $german => '15 Minuten'], $names);
         $this->assertSame([
-            'id' => $id,
-            'unit' => 'minute',
-            'min' => 15,
-            'max' => 15,
-            'translations' => [
-                Defaults::LANGUAGE_SYSTEM => ['name' => '15 minutes'],
-                $german => ['name' => '15 Minuten'],
-            ],
-        ], $created[0]);
-        $this->assertSame([
-            ['id' => self::DELIVERY, 'deliveryTimeId' => $existing->getId()],
+            ['id' => self::DELIVERY, 'deliveryTimeId' => $existing],
             ['id' => self::PICKUP, 'deliveryTimeId' => $id],
-            ['id' => '0190000000007000800000000000d003', 'deliveryTimeId' => $id],
+            ['id' => $third, 'deliveryTimeId' => $id],
         ], $updates);
+        // the core delivery time before is kept for deactivating the plugin; none for a minute one
+        $this->assertSame([
+            self::DELIVERY => [$hour, $existing],
+            self::PICKUP => [null, $id],
+            $third => [$hour, $id],
+        ], $remembered);
     }
 
     public function testWriteWithoutMissingDeliveryTimesCreatesNone(): void
     {
-        $this->connection->method('fetchAllAssociative')->willReturn([['id' => Defaults::LANGUAGE_SYSTEM, 'locale' => 'de-DE']]);
-        $existing = ShippingMethodFulfillmentTest::deliveryTime('minute', 20, 20);
-        $this->deliveryTimes->method('search')->willReturn(self::deliveryTimeResult([$existing]));
-        $this->deliveryTimes->expects($this->never())->method('create');
+        $existing = '0190000000007000800000000000f020';
+        $this->connection->method('fetchAllAssociative')->willReturnCallback(static fn (string $sql): array => str_contains($sql, 'FROM delivery_time WHERE unit')
+            ? [['id' => $existing, 'min' => 20, 'max' => 20]]
+            : []);
+        $this->connection->expects($this->once())->method('executeStatement')
+            ->with($this->stringContains('INSERT INTO shopbite_shipping_method_delivery_time'));
         $this->repository->expects($this->once())->method('update')
-            ->with([['id' => self::DELIVERY, 'deliveryTimeId' => $existing->getId()]]);
+            ->with([['id' => self::DELIVERY, 'deliveryTimeId' => $existing]]);
 
         $this->service()->write([self::DELIVERY => 20]);
     }
 
     public function testEmptyWriteDoesNothing(): void
     {
-        $this->deliveryTimes->expects($this->never())->method('search');
+        $this->connection->expects($this->never())->method('fetchAllAssociative');
         $this->repository->expects($this->never())->method('update');
 
         $this->service()->write([]);
@@ -266,7 +268,7 @@ class ShippingMethodLeadTimesTest extends TestCase
 
     private function service(): ShippingMethodLeadTimes
     {
-        return new ShippingMethodLeadTimes($this->repository, $this->deliveryTimes, $this->connection);
+        return new ShippingMethodLeadTimes($this->repository, $this->deliveryTimes, $this->connection, new MinuteDeliveryTimes($this->connection));
     }
 
     public static function methods(): ShippingMethodCollection

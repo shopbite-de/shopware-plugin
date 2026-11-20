@@ -10,6 +10,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use ShopBite\Fulfillment\MinuteDeliveryTimes;
 use ShopBite\Fulfillment\ShippingMethodFulfillment;
 use ShopBite\Fulfillment\ShippingMethodLeadTimes;
 use ShopBite\Settings\Api\SettingsRoute;
@@ -85,7 +86,7 @@ class RestaurantSettingsTest extends TestCase
             new RestaurantSettings($this->systemConfig),
             $this->connection,
             new BranchBinding($this->connection),
-            new ShippingMethodLeadTimes($this->shippingMethods, $this->deliveryTimes, $this->assignments),
+            new ShippingMethodLeadTimes($this->shippingMethods, $this->deliveryTimes, $this->assignments, new MinuteDeliveryTimes($this->assignments)),
         );
     }
 
@@ -177,13 +178,15 @@ class RestaurantSettingsTest extends TestCase
         $this->assigned([ShippingMethodLeadTimesTest::DELIVERY => [self::CHANNEL, self::OTHER_CHANNEL], ShippingMethodLeadTimesTest::PICKUP => [self::CHANNEL]]);
         $this->systemConfig->expects($this->once())->method('set')
             ->willReturnCallback(fn () => static::assertTrue($this->inTransaction));
-        $this->deliveryTimes->expects($this->once())->method('create')
-            ->with($this->callback(static fn (array $created): bool => array_column($created, 'max') === [50, 15]))
-            ->willReturnCallback(function () {
-                static::assertTrue($this->inTransaction);
+        $created = [];
+        $this->assignments->method('executeStatement')->willReturnCallback(function (string $sql, array $params = []) use (&$created): int {
+            static::assertTrue($this->inTransaction);
+            if (str_starts_with($sql, 'INSERT INTO delivery_time ')) {
+                $created[] = $params['max'];
+            }
 
-                return $this->createStub(\Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenContainerEvent::class);
-            });
+            return 1;
+        });
         $this->shippingMethods->expects($this->once())->method('update')
             ->with($this->callback(static fn (array $updates): bool => array_column($updates, 'id') === [ShippingMethodLeadTimesTest::DELIVERY, ShippingMethodLeadTimesTest::PICKUP]))
             ->willReturnCallback(function () {
@@ -198,6 +201,7 @@ class RestaurantSettingsTest extends TestCase
         ]]), $this->admin());
 
         static::assertSame(200, $response->getStatusCode());
+        static::assertSame([50, 15], $created);
         $body = json_decode((string) $response->getContent(), true);
         static::assertIsArray($body);
         static::assertArrayHasKey('shippingMethods', $body);
@@ -354,12 +358,14 @@ class RestaurantSettingsTest extends TestCase
                 $rows[] = ['shipping_method_id' => $method, 'sales_channel_id' => $channel];
             }
         }
-        $this->assignments->method('fetchAllAssociative')->willReturnCallback(static fn (string $sql, array $params = []): array => str_contains($sql, 'FROM language')
-            ? [['id' => Defaults::LANGUAGE_SYSTEM, 'locale' => 'de-DE']]
-            : array_values(array_filter(
+        $this->assignments->method('fetchAllAssociative')->willReturnCallback(static fn (string $sql, array $params = []): array => match (true) {
+            str_contains($sql, 'FROM language') => [['id' => Defaults::LANGUAGE_SYSTEM, 'locale' => 'de-DE']],
+            str_contains($sql, 'sales_channel_shipping_method') => array_values(array_filter(
                 $rows,
                 static fn (array $row): bool => \in_array(hex2bin($row['shipping_method_id']), $params['ids'], true),
-            )));
+            )),
+            default => [],
+        });
     }
 
     private function channelExists(bool $exists): void

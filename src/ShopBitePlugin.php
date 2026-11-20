@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace ShopBite;
 
+use Doctrine\DBAL\Connection;
 use Override;
 
 use function Psl\Type\instance_of;
 
+use ShopBite\Fulfillment\MinuteDeliveryTimes;
 use ShopBite\Service\CustomFieldsInstaller;
 use ShopBite\Service\FoodLabelInstaller;
 use ShopBite\Service\OrderPrinterRoleInstaller;
 use ShopBite\Service\StaffRoleInstaller;
 use Shopware\Core\Framework\Plugin;
 use Shopware\Core\Framework\Plugin\Context\ActivateContext;
+use Shopware\Core\Framework\Plugin\Context\DeactivateContext;
 use Shopware\Core\Framework\Plugin\Context\InstallContext;
 use Shopware\Core\Framework\Plugin\Context\UninstallContext;
 use Shopware\Core\Framework\Plugin\Context\UpdateContext;
@@ -32,12 +35,16 @@ final class ShopBitePlugin extends Plugin
     #[Override]
     public function uninstall(UninstallContext $uninstallContext): void
     {
+        // Already done by deactivate(); refuses again while minute delivery times are left.
+        $this->getMinuteDeliveryTimes()->deactivate();
+
         parent::uninstall($uninstallContext);
 
         if ($uninstallContext->keepUserData()) {
             return;
         }
 
+        $this->getMinuteDeliveryTimes()->dropTable();
         $this->getCustomFieldsInstaller()->uninstall($uninstallContext->getContext());
         $this->getOrderPrinterRoleInstaller()->uninstall($uninstallContext->getContext());
         $this->getStaffRoleInstaller()->uninstall($uninstallContext->getContext());
@@ -47,6 +54,17 @@ final class ShopBitePlugin extends Plugin
     public function activate(ActivateContext $activateContext): void
     {
         $this->getCustomFieldsInstaller()->addRelations($activateContext->getContext());
+        $this->getMinuteDeliveryTimes()->activate();
+    }
+
+    /**
+     * Shopware core does not know the delivery time unit minute: the shipping methods the plugin
+     * moved to minutes get their previous delivery time back, refused while anything else uses one.
+     */
+    #[Override]
+    public function deactivate(DeactivateContext $deactivateContext): void
+    {
+        $this->getMinuteDeliveryTimes()->deactivate();
     }
 
     #[Override]
@@ -56,6 +74,14 @@ final class ShopBitePlugin extends Plugin
         $this->getOrderPrinterRoleInstaller()->update($updateContext->getContext());
         $this->getStaffRoleInstaller()->update($updateContext->getContext());
         $this->getFoodLabelInstaller()->update($updateContext->getContext());
+    }
+
+    /**
+     * @psalm-suppress PossiblyNullReference The container is set before any lifecycle method runs
+     */
+    private function getMinuteDeliveryTimes(): MinuteDeliveryTimes
+    {
+        return new MinuteDeliveryTimes(instance_of(Connection::class)->coerce($this->container->get(Connection::class)));
     }
 
     private function getCustomFieldsInstaller(): CustomFieldsInstaller

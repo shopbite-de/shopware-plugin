@@ -16,6 +16,7 @@ use ShopBite\BusinessHour\BusinessHourEntity;
 use ShopBite\Checkout\Cart\Ordering\OrderingClosedError;
 use ShopBite\Checkout\Cart\Ordering\OrderingWindow;
 use ShopBite\Checkout\Cart\Ordering\OrderingWindowValidator;
+use ShopBite\Fulfillment\MinuteDeliveryTimes;
 use ShopBite\Fulfillment\ShippingMethodFulfillment;
 use ShopBite\Fulfillment\ShippingMethodLeadTimes;
 use ShopBite\Holiday\HolidayCollection;
@@ -23,8 +24,16 @@ use ShopBite\Settings\RestaurantSettings;
 use ShopBite\Tests\Unit\Fulfillment\ShippingMethodFulfillmentTest;
 use ShopBite\Tests\Unit\Fulfillment\ShippingMethodLeadTimesTest;
 use Shopware\Core\Checkout\Cart\Cart;
+use Shopware\Core\Checkout\Cart\Delivery\Struct\Delivery;
+use Shopware\Core\Checkout\Cart\Delivery\Struct\DeliveryCollection;
+use Shopware\Core\Checkout\Cart\Delivery\Struct\DeliveryDate;
+use Shopware\Core\Checkout\Cart\Delivery\Struct\DeliveryPositionCollection;
+use Shopware\Core\Checkout\Cart\Delivery\Struct\ShippingLocation;
 use Shopware\Core\Checkout\Cart\Error\ErrorCollection;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
+use Shopware\Core\Checkout\Cart\Price\Struct\CalculatedPrice;
+use Shopware\Core\Checkout\Cart\Tax\Struct\CalculatedTaxCollection;
+use Shopware\Core\Checkout\Cart\Tax\Struct\TaxRuleCollection;
 use Shopware\Core\Checkout\Shipping\ShippingMethodEntity;
 use Shopware\Core\Framework\Api\Context\AdminApiSource;
 use Shopware\Core\Framework\Api\Context\ContextSource;
@@ -114,6 +123,24 @@ class OrderingWindowValidatorTest extends TestCase
         $this->deliveryTimes = [ShippingMethodFulfillmentTest::deliveryTime('minute', 60, 60)];
 
         $this->assertBlockedWith(OrderingWindow::CLOSED, $this->validate('2026-11-16 20:30 UTC', shippingMethod: $method));
+    }
+
+    public function testDeliveryTimeOfTheCartDeliveryIsUsed(): void
+    {
+        // The cart's delivery carries the shipping method with its delivery time: no extra query.
+        $cart = new Cart('token');
+        $cart->add(new LineItem('item', LineItem::PRODUCT_LINE_ITEM_TYPE, '0190000000007000800000000000c001'));
+        $cart->setDeliveries(new DeliveryCollection([new Delivery(
+            new DeliveryPositionCollection(),
+            new DeliveryDate(new \DateTimeImmutable(), new \DateTimeImmutable()),
+            $this->shippingMethod(ShippingMethodFulfillmentTest::deliveryTime('minute', 60, 60)),
+            $this->createStub(ShippingLocation::class),
+            new CalculatedPrice(0, 0, new CalculatedTaxCollection(), new TaxRuleCollection()),
+        )]));
+        $method = $this->shippingMethod(null);
+        $method->setDeliveryTimeId('0190000000007000800000000000f001');
+
+        $this->assertBlockedWith(OrderingWindow::CLOSED, $this->validate('2026-11-16 20:30 UTC', cart: $cart, shippingMethod: $method));
     }
 
     public function testShippingMethodWithoutLeadTimeTakes30Minutes(): void
@@ -207,7 +234,7 @@ class OrderingWindowValidatorTest extends TestCase
 
         $validator = new OrderingWindowValidator(
             new RestaurantSettings($this->systemConfig),
-            new ShippingMethodLeadTimes($this->createStub(EntityRepository::class), $deliveryTimes, $this->createStub(Connection::class)),
+            new ShippingMethodLeadTimes($this->createStub(EntityRepository::class), $deliveryTimes, $this->createStub(Connection::class), new MinuteDeliveryTimes($this->createStub(Connection::class))),
             $this->businessHours,
             $this->holidays,
             $clock,

@@ -100,10 +100,16 @@ The lead time is the **maximum** of the delivery time converted to minutes (unit
 
 When the backoffice sets a lead time of X minutes (settings route below), the method gets a delivery time with unit minute and min = max = X: an existing one if there is one, else a new one named "X Minuten" in German languages and "X minutes" in all others. Existing delivery times are never changed, because other shipping methods (or products) may use them; a delivery time shared by two methods stays as it is when the lead time of one of them changes.
 
-Plugin updates from older versions migrate existing shipping methods once:
+Install and update (from older versions) migrate the shipping methods once:
 
 - Fulfillment, only where it is empty or invalid: pickup when the technical name or a name contains "abhol", "pickup" or "selbst", else delivery; written into every translation of the method.
-- Lead time: every method whose delivery time is not minute based (Shopware's "1-3 days", a "0-1 hour", ...) gets a minute delivery time with the value of the former plugin setting *Default Delivery Time* (the values set on the method's sales channels when they agree, else the global value, else 30). Methods that already have a minute delivery time keep it. The former setting is deleted. A value of the custom field `shopbite_lead_time_minutes` of an unreleased development version wins over the setting; the field and its values are removed.
+- Lead time: every method that is assigned to a sales channel (active or not) and whose delivery time is not minute based (Shopware's "1-3 days", a "0-1 hour", ...) gets a minute delivery time with the value of the former plugin setting *Default Delivery Time* (the values set on the method's sales channels when they agree, else the global value, else 30). On a fresh install that means Shopware's *Standard* and *Express* get "30 Minuten". Methods in no sales channel and methods that already have a minute delivery time stay as they are. The former setting is deleted. A value of the custom field `shopbite_lead_time_minutes` of an unreleased development version wins over the setting; the field and its values are removed.
+
+Shopware itself does not know the unit minute: without the plugin, every cart with such a delivery time fails ("Not supported unit minute"). So whenever the plugin moves a shipping method to a minute delivery time (migration or settings route), it remembers the method's previous delivery time (table `shopbite_shipping_method_delivery_time`):
+
+- **Deactivate** (also before uninstall) puts the previous delivery time back on every such method that is still on a minute delivery time. It is **refused**, without changing anything, while another shipping method (one the plugin did not move, e.g. set to minutes by hand) or a product still uses a delivery time in minutes; the message names them. Give them a delivery time with unit hour, day, week, month or year and try again.
+- **Activate** gives the methods that are still on the restored delivery time their minute delivery time again.
+- **Uninstall** without *keep user data* drops the table; a later install migrates again.
 
 `/store-api/shopbite/config` returns the active shipping methods of the sales channel:
 
