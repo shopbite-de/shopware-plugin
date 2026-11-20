@@ -23,8 +23,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * field shopbite_sales_channel_ids, see BranchBinding) see and change only these sales channels.
  *
  * Every read carries `shippingMethods` (the channel's active shipping methods with fulfillment and
- * lead time); a PATCH with `leadTimes` writes the lead time onto the shipping method, which
- * changes it for every sales channel using that method. Hence a bound user may only change methods
+ * lead time); a PATCH with `leadTimes` assigns the shipping method a delivery time of that many
+ * minutes, which changes it for every sales channel using that method. Hence a bound user may only change methods
  * that are assigned exclusively to their branches.
  *
  * @psalm-api Registered through routes.xml

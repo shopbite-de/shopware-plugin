@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace ShopBite\Fulfillment;
 
+use ShopBite\Checkout\Cart\Delivery\MinuteAwareDeliveryBuilder;
 use ShopBite\Service\CustomFieldsInstaller;
 use Shopware\Core\Checkout\Shipping\ShippingMethodEntity;
+use Shopware\Core\System\DeliveryTime\DeliveryTimeEntity;
 
 /**
  * The single source of truth for what a shipping method means to the restaurant: its
- * fulfillment (delivery or pickup) and its lead time in minutes (until delivered or ready for
- * pickup), read from the shipping method custom fields `shopbite_fulfillment` and
- * `shopbite_lead_time_minutes`. A method without (valid) values counts as delivery with
- * 30 minutes; nothing is guessed from names at runtime (existing methods got the values once
- * from Migration1795564800ShippingMethodFulfillment).
+ * fulfillment (delivery or pickup, custom field `shopbite_fulfillment`) and its lead time in
+ * minutes (until delivered or ready for pickup), which is the maximum of the method's Shopware
+ * delivery time converted to minutes and clamped to 1..1440. A method without a valid fulfillment
+ * counts as delivery, one without a (known) delivery time has 30 minutes; nothing is guessed from
+ * names at runtime.
  */
 final readonly class ShippingMethodFulfillment
 {
@@ -27,6 +29,22 @@ final readonly class ShippingMethodFulfillment
 
     public const int MAX_LEAD_TIME_MINUTES = 1440;
 
+    /** The delivery time unit the plugin adds (Administration and MinuteAwareDeliveryBuilder). */
+    public const string UNIT_MINUTE = MinuteAwareDeliveryBuilder::UNIT_MINUTE;
+
+    /**
+     * Minutes per delivery time unit. Months and years only matter as "more than a day", since
+     * lead times are clamped to 1440 minutes.
+     */
+    private const array MINUTES_PER_UNIT = [
+        self::UNIT_MINUTE => 1,
+        DeliveryTimeEntity::DELIVERY_TIME_HOUR => 60,
+        DeliveryTimeEntity::DELIVERY_TIME_DAY => 1440,
+        DeliveryTimeEntity::DELIVERY_TIME_WEEK => 10080,
+        DeliveryTimeEntity::DELIVERY_TIME_MONTH => 43200,
+        DeliveryTimeEntity::DELIVERY_TIME_YEAR => 525600,
+    ];
+
     /**
      * @return self::DELIVERY|self::PICKUP
      */
@@ -35,17 +53,60 @@ final readonly class ShippingMethodFulfillment
         return self::validFulfillment(self::customFields($method)[CustomFieldsInstaller::SHOPBITE_FULFILLMENT] ?? null) ?? self::DELIVERY;
     }
 
+    /**
+     * The lead time from the method's delivery time, which must be loaded (association
+     * `deliveryTime`); see ShippingMethodLeadTimes::leadTimeMinutes() for a method without it.
+     */
     public static function leadTimeMinutes(ShippingMethodEntity $method): int
     {
-        return self::configuredLeadTimeMinutes($method) ?? self::DEFAULT_LEAD_TIME_MINUTES;
+        return self::deliveryTimeMinutes($method->getDeliveryTime()) ?? self::DEFAULT_LEAD_TIME_MINUTES;
     }
 
     /**
-     * Whether the lead time is set on the method (else the default of 30 minutes applies).
+     * Whether the method has a delivery time of a known unit (else the default of 30 minutes applies).
      */
     public static function isLeadTimeSet(ShippingMethodEntity $method): bool
     {
-        return self::configuredLeadTimeMinutes($method) !== null;
+        return self::deliveryTimeMinutes($method->getDeliveryTime()) !== null;
+    }
+
+    /**
+     * The maximum of a delivery time in minutes, clamped to 1..1440; null without a delivery
+     * time or for an unknown unit.
+     */
+    public static function deliveryTimeMinutes(?DeliveryTimeEntity $deliveryTime): ?int
+    {
+        if ($deliveryTime === null) {
+            return null;
+        }
+
+        return self::minutesOf($deliveryTime->getUnit(), $deliveryTime->getMax());
+    }
+
+    /**
+     * @see deliveryTimeMinutes()
+     */
+    public static function minutesOf(string $unit, int $max): ?int
+    {
+        $factor = self::MINUTES_PER_UNIT[$unit] ?? null;
+        if ($factor === null) {
+            return null;
+        }
+
+        return max(self::MIN_LEAD_TIME_MINUTES, min(self::MAX_LEAD_TIME_MINUTES, $max * $factor));
+    }
+
+    /**
+     * The name of a delivery time of exactly that many minutes: German for German locales
+     * ("20 Minuten"), English for all others ("20 minutes").
+     */
+    public static function deliveryTimeName(int $minutes, string $localeCode): string
+    {
+        if (str_starts_with(strtolower($localeCode), 'de')) {
+            return $minutes === 1 ? '1 Minute' : $minutes . ' Minuten';
+        }
+
+        return $minutes === 1 ? '1 minute' : $minutes . ' minutes';
     }
 
     /**
@@ -73,11 +134,6 @@ final readonly class ShippingMethodFulfillment
     public static function validLeadTimeMinutes(mixed $value): ?int
     {
         return \is_int($value) && $value >= self::MIN_LEAD_TIME_MINUTES && $value <= self::MAX_LEAD_TIME_MINUTES ? $value : null;
-    }
-
-    private static function configuredLeadTimeMinutes(ShippingMethodEntity $method): ?int
-    {
-        return self::validLeadTimeMinutes(self::customFields($method)[CustomFieldsInstaller::SHOPBITE_LEAD_TIME_MINUTES] ?? null);
     }
 
     /**

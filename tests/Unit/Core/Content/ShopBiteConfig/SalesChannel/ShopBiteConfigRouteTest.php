@@ -73,7 +73,7 @@ class ShopBiteConfigRouteTest extends TestCase
             )
             ->willReturn(ShippingMethodLeadTimesTest::searchResult(ShippingMethodLeadTimesTest::methods()));
 
-        $config = $this->load('sales-channel-id', ['isCheckoutEnabled' => true], new ShippingMethodLeadTimes($repository, $this->createStub(Connection::class)));
+        $config = $this->load('sales-channel-id', ['isCheckoutEnabled' => true], new ShippingMethodLeadTimes($repository, $this->createStub(EntityRepository::class), $this->createStub(Connection::class)));
 
         $this->assertSame([
             ['id' => ShippingMethodLeadTimesTest::DELIVERY, 'fulfillment' => 'delivery', 'leadTimeMinutes' => 45],
@@ -164,7 +164,7 @@ class ShopBiteConfigRouteTest extends TestCase
         $repository = $this->createStub(EntityRepository::class);
         $repository->method('search')->willReturn(ShippingMethodLeadTimesTest::searchResult(new ShippingMethodCollection()));
 
-        return new ShippingMethodLeadTimes($repository, $this->createStub(Connection::class));
+        return new ShippingMethodLeadTimes($repository, $this->createStub(EntityRepository::class), $this->createStub(Connection::class));
     }
 
     private function context(string $salesChannelId): SalesChannelContext

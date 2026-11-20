@@ -61,13 +61,12 @@ class CustomFieldsInstallerTest extends TestCase
                 if (!$productSet || !$categorySet || !$userSet || !$shippingSet) {
                     return false;
                 }
-                // fulfillment and lead time per shipping method
+                // fulfillment per shipping method
                 $shippingFields = array_column($shippingSet['customFields'], null, 'name');
-                if ($shippingFields['shopbite_fulfillment']['type'] !== 'select'
-                    || array_column($shippingFields['shopbite_fulfillment']['config']['options'], 'value') !== ['delivery', 'pickup']
-                    || $shippingFields['shopbite_lead_time_minutes']['type'] !== 'int'
-                    || $shippingFields['shopbite_lead_time_minutes']['config']['min'] !== 1
-                    || $shippingFields['shopbite_lead_time_minutes']['config']['max'] !== 1440) {
+                // the lead time is the shipping method's delivery time, no custom field
+                if (array_keys($shippingFields) !== ['shopbite_fulfillment']
+                    || $shippingFields['shopbite_fulfillment']['type'] !== 'select'
+                    || array_column($shippingFields['shopbite_fulfillment']['config']['options'], 'value') !== ['delivery', 'pickup']) {
                     return false;
                 }
                 // backoffice branch binding: list of sales channel ids

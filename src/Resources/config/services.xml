@@ -57,9 +57,10 @@
             <argument key="$aclRoleRepository" type="service" id="acl_role.repository"/>
         </service>
 
-        <!-- Fulfillment (delivery/pickup) and lead time per shipping method -->
+        <!-- Fulfillment (delivery/pickup) and lead time (delivery time) per shipping method -->
         <service id="ShopBite\Fulfillment\ShippingMethodLeadTimes">
             <argument type="service" id="shipping_method.repository"/>
+            <argument type="service" id="delivery_time.repository"/>
             <argument type="service" id="Doctrine\DBAL\Connection"/>
         </service>
 
@@ -174,6 +175,7 @@
         <!-- Orders only while ordering is open, outside holidays and within the opening hours -->
         <service id="ShopBite\Checkout\Cart\Ordering\OrderingWindowValidator">
             <argument type="service" id="ShopBite\Settings\RestaurantSettings"/>
+            <argument type="service" id="ShopBite\Fulfillment\ShippingMethodLeadTimes"/>
             <argument type="service" id="shopbite_business_hour.repository"/>
             <argument type="service" id="shopbite_holiday.repository"/>
             <tag name="shopware.cart.validator"/>

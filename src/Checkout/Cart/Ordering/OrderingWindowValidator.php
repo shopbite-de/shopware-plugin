@@ -6,7 +6,7 @@ namespace ShopBite\Checkout\Cart\Ordering;
 
 use Psr\Clock\ClockInterface;
 use ShopBite\BusinessHour\BusinessHourCollection;
-use ShopBite\Fulfillment\ShippingMethodFulfillment;
+use ShopBite\Fulfillment\ShippingMethodLeadTimes;
 use ShopBite\Holiday\HolidayCollection;
 use ShopBite\Settings\RestaurantSettings;
 use Shopware\Core\Checkout\Cart\Cart;
@@ -24,7 +24,7 @@ use Symfony\Component\Clock\NativeClock;
 /**
  * Blocks orders from the Store API while ordering is paused for the sales
  * channel, on holidays and outside the opening hours (see OrderingWindow), using the lead time
- * of the cart's selected shipping method.
+ * (delivery time) of the cart's selected shipping method.
  * Orders entered in the administration (Admin API, or the order proxy with
  * its price overwrite permission) are not checked, nor is an empty cart.
  *
@@ -45,6 +45,7 @@ final readonly class OrderingWindowValidator implements CartValidatorInterface
      */
     public function __construct(
         private RestaurantSettings $settings,
+        private ShippingMethodLeadTimes $leadTimes,
         private EntityRepository $businessHourRepository,
         private EntityRepository $holidayRepository,
         private ClockInterface $clock = new NativeClock(),
@@ -84,7 +85,7 @@ final readonly class OrderingWindowValidator implements CartValidatorInterface
             $this->businessHourRepository->search($hoursCriteria, $context->getContext())->getEntities(),
             $this->holidayRepository->search($holidayCriteria, $context->getContext())->getEntities(),
             $this->timeZone($context),
-            ShippingMethodFulfillment::leadTimeMinutes($context->getShippingMethod()),
+            $this->leadTimes->leadTimeMinutes($context->getShippingMethod(), $context->getContext()),
         );
 
         $reason = $window->closedReason($now);

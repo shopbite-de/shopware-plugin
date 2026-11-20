@@ -15,12 +15,16 @@ use ShopBite\Fulfillment\ShippingMethodLeadTimes;
 use Shopware\Core\Checkout\Shipping\ShippingMethodCollection;
 use Shopware\Core\Checkout\Shipping\ShippingMethodEntity;
 use Shopware\Core\Defaults;
+use Shopware\Core\Framework\Api\Context\SystemSource;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\EntitySearchResult;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsAnyFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\Uuid\Uuid;
+use Shopware\Core\System\DeliveryTime\DeliveryTimeCollection;
+use Shopware\Core\System\DeliveryTime\DeliveryTimeEntity;
 
 #[CoversClass(ShippingMethodLeadTimes::class)]
 #[UsesClass(ShippingMethodFulfillment::class)]
@@ -38,6 +42,9 @@ class ShippingMethodLeadTimesTest extends TestCase
     /** @var EntityRepository<ShippingMethodCollection>&MockObject */
     private EntityRepository&MockObject $repository;
 
+    /** @var EntityRepository<DeliveryTimeCollection>&MockObject */
+    private EntityRepository&MockObject $deliveryTimes;
+
     private Connection&MockObject $connection;
 
     private ?Criteria $criteria = null;
@@ -50,6 +57,7 @@ class ShippingMethodLeadTimesTest extends TestCase
 
             return self::searchResult(self::methods());
         });
+        $this->deliveryTimes = $this->createMock(EntityRepository::class);
         $this->connection = $this->createMock(Connection::class);
     }
 
@@ -62,6 +70,7 @@ class ShippingMethodLeadTimesTest extends TestCase
             ['id' => self::PICKUP, 'fulfillment' => 'pickup', 'leadTimeMinutes' => 30],
         ], $methods);
         $this->assertFiltersActiveMethodsOfTheChannel();
+        $this->assertTrue($this->criteria?->hasAssociation('deliveryTime'));
     }
 
     public function testBackofficeGetsNamesAndWhetherTheLeadTimeIsSet(): void
@@ -119,36 +128,128 @@ class ShippingMethodLeadTimesTest extends TestCase
         $this->assertSame([], $this->service()->salesChannelIds([]));
     }
 
-    public function testWritesTheLeadTimeIntoEveryTranslationOfTheMethod(): void
+    public function testLeadTimeOfALoadedDeliveryTimeNeedsNoQuery(): void
     {
-        // Custom fields are translated and the channel language wins over the system language,
-        // so a value in any other translation would shadow the change.
-        $german = '0190000000007000800000000000e001';
-        $this->connection->expects($this->once())->method('fetchAllAssociative')
-            ->with(
-                $this->stringContains('shipping_method_translation'),
-                ['ids' => [Uuid::fromHexToBytes(self::DELIVERY), Uuid::fromHexToBytes(self::PICKUP)]],
-                ['ids' => \Doctrine\DBAL\ArrayParameterType::BINARY],
-            )
-            ->willReturn([
-                ['shipping_method_id' => self::DELIVERY, 'language_id' => Defaults::LANGUAGE_SYSTEM],
-                ['shipping_method_id' => self::DELIVERY, 'language_id' => $german],
-                ['shipping_method_id' => self::PICKUP, 'language_id' => Defaults::LANGUAGE_SYSTEM],
-            ]);
-        $this->repository->expects($this->once())->method('update')->with(
-            [
-                ['id' => self::DELIVERY, 'translations' => [
-                    Defaults::LANGUAGE_SYSTEM => ['customFields' => ['shopbite_lead_time_minutes' => 50]],
-                    $german => ['customFields' => ['shopbite_lead_time_minutes' => 50]],
-                ]],
-                ['id' => self::PICKUP, 'translations' => [
-                    Defaults::LANGUAGE_SYSTEM => ['customFields' => ['shopbite_lead_time_minutes' => 15]],
-                ]],
-            ],
-            $this->isInstanceOf(Context::class),
-        );
+        $this->deliveryTimes->expects($this->never())->method('search');
+        $method = self::methods()->get(self::DELIVERY);
+        $this->assertNotNull($method);
 
-        $this->service()->write([self::DELIVERY => 50, self::PICKUP => 15]);
+        $this->assertSame(45, $this->service()->leadTimeMinutes($method, Context::createDefaultContext()));
+    }
+
+    public function testLeadTimeLoadsTheDeliveryTimeOfTheMethod(): void
+    {
+        // The sales channel context loads its shipping method without the delivery time.
+        $method = new ShippingMethodEntity();
+        $method->setId(self::DELIVERY);
+        $method->setDeliveryTimeId('0190000000007000800000000000f001');
+        $this->deliveryTimes->expects($this->once())->method('search')
+            ->with($this->callback(static fn (Criteria $criteria): bool => $criteria->getIds() === ['0190000000007000800000000000f001']))
+            ->willReturn(self::deliveryTimeResult([ShippingMethodFulfillmentTest::deliveryTime('minute', 20, 25)]));
+
+        $this->assertSame(25, $this->service()->leadTimeMinutes($method, Context::createDefaultContext()));
+    }
+
+    public function testLeadTimeWithoutDeliveryTimeIs30Minutes(): void
+    {
+        $method = new ShippingMethodEntity();
+        $method->setId(self::DELIVERY);
+        $method->setDeliveryTimeId('0190000000007000800000000000f001');
+        $this->deliveryTimes->method('search')->willReturn(self::deliveryTimeResult([]));
+
+        $this->assertSame(30, $this->service()->leadTimeMinutes($method, Context::createDefaultContext()));
+    }
+
+    public function testWriteReusesAnExactMinuteDeliveryTimeAndCreatesTheMissingOnes(): void
+    {
+        $german = '0190000000007000800000000000e001';
+        $existing = ShippingMethodFulfillmentTest::deliveryTime('minute', 50, 50);
+        $this->connection->method('fetchAllAssociative')->willReturnCallback(static function (string $sql) use ($german): array {
+            static::assertStringContainsString('FROM language', $sql);
+
+            return [
+                ['id' => Defaults::LANGUAGE_SYSTEM, 'locale' => 'en-GB'],
+                ['id' => $german, 'locale' => 'de-DE'],
+            ];
+        });
+        $this->deliveryTimes->expects($this->once())->method('search')
+            ->with($this->callback(static function (Criteria $criteria): bool {
+                $filters = [];
+                foreach ($criteria->getFilters() as $filter) {
+                    if ($filter instanceof EqualsFilter || $filter instanceof EqualsAnyFilter) {
+                        $filters[$filter->getField()] = $filter->getValue();
+                    }
+                }
+
+                return $filters === ['unit' => 'minute', 'max' => [50, 15]];
+            }), $this->callback(static fn (Context $context): bool => $context->getSource() instanceof SystemSource))
+            // a range and another unit with the same maximum do not count
+            ->willReturn(self::deliveryTimeResult([
+                ShippingMethodFulfillmentTest::deliveryTime('minute', 15, 50),
+                ShippingMethodFulfillmentTest::deliveryTime('hour', 15, 15),
+                $existing,
+            ]));
+        $created = [];
+        $this->deliveryTimes->expects($this->once())->method('create')
+            ->willReturnCallback(function (array $data, Context $context) use (&$created) {
+                static::assertInstanceOf(SystemSource::class, $context->getSource());
+                $created = $data;
+
+                return $this->createStub(\Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenContainerEvent::class);
+            });
+        // existing delivery times are never changed: they may be shared with other methods
+        $this->deliveryTimes->expects($this->never())->method('update');
+        $this->deliveryTimes->expects($this->never())->method('upsert');
+        $updates = [];
+        $this->repository->expects($this->once())->method('update')
+            ->willReturnCallback(function (array $data, Context $context) use (&$updates) {
+                static::assertInstanceOf(SystemSource::class, $context->getSource());
+                $updates = $data;
+
+                return $this->createStub(\Shopware\Core\Framework\DataAbstractionLayer\Event\EntityWrittenContainerEvent::class);
+            });
+
+        $this->service()->write([self::DELIVERY => 50, self::PICKUP => 15, '0190000000007000800000000000d003' => 15]);
+
+        $this->assertCount(1, $created, 'one new delivery time for both methods with 15 minutes');
+        $id = $created[0]['id'];
+        $this->assertIsString($id);
+        $this->assertTrue(Uuid::isValid($id));
+        $this->assertSame([
+            'id' => $id,
+            'unit' => 'minute',
+            'min' => 15,
+            'max' => 15,
+            'translations' => [
+                Defaults::LANGUAGE_SYSTEM => ['name' => '15 minutes'],
+                $german => ['name' => '15 Minuten'],
+            ],
+        ], $created[0]);
+        $this->assertSame([
+            ['id' => self::DELIVERY, 'deliveryTimeId' => $existing->getId()],
+            ['id' => self::PICKUP, 'deliveryTimeId' => $id],
+            ['id' => '0190000000007000800000000000d003', 'deliveryTimeId' => $id],
+        ], $updates);
+    }
+
+    public function testWriteWithoutMissingDeliveryTimesCreatesNone(): void
+    {
+        $this->connection->method('fetchAllAssociative')->willReturn([['id' => Defaults::LANGUAGE_SYSTEM, 'locale' => 'de-DE']]);
+        $existing = ShippingMethodFulfillmentTest::deliveryTime('minute', 20, 20);
+        $this->deliveryTimes->method('search')->willReturn(self::deliveryTimeResult([$existing]));
+        $this->deliveryTimes->expects($this->never())->method('create');
+        $this->repository->expects($this->once())->method('update')
+            ->with([['id' => self::DELIVERY, 'deliveryTimeId' => $existing->getId()]]);
+
+        $this->service()->write([self::DELIVERY => 20]);
+    }
+
+    public function testEmptyWriteDoesNothing(): void
+    {
+        $this->deliveryTimes->expects($this->never())->method('search');
+        $this->repository->expects($this->never())->method('update');
+
+        $this->service()->write([]);
     }
 
     private function assertFiltersActiveMethodsOfTheChannel(): void
@@ -165,7 +266,7 @@ class ShippingMethodLeadTimesTest extends TestCase
 
     private function service(): ShippingMethodLeadTimes
     {
-        return new ShippingMethodLeadTimes($this->repository, $this->connection);
+        return new ShippingMethodLeadTimes($this->repository, $this->deliveryTimes, $this->connection);
     }
 
     public static function methods(): ShippingMethodCollection
@@ -174,7 +275,8 @@ class ShippingMethodLeadTimesTest extends TestCase
         $delivery->setId(self::DELIVERY);
         $delivery->setTechnicalName('shipping_standard');
         $delivery->setName('Lieferung');
-        $delivery->setCustomFields(['shopbite_fulfillment' => 'delivery', 'shopbite_lead_time_minutes' => 45]);
+        $delivery->setCustomFields(['shopbite_fulfillment' => 'delivery']);
+        $delivery->setDeliveryTime(ShippingMethodFulfillmentTest::deliveryTime('minute', 30, 45));
 
         $pickup = new ShippingMethodEntity();
         $pickup->setId(self::PICKUP);
@@ -191,5 +293,15 @@ class ShippingMethodLeadTimesTest extends TestCase
     public static function searchResult(ShippingMethodCollection $methods): EntitySearchResult
     {
         return new EntitySearchResult('shipping_method', $methods->count(), $methods, null, new Criteria(), Context::createDefaultContext());
+    }
+
+    /**
+     * @param list<DeliveryTimeEntity> $deliveryTimes
+     *
+     * @return EntitySearchResult<DeliveryTimeCollection>
+     */
+    public static function deliveryTimeResult(array $deliveryTimes): EntitySearchResult
+    {
+        return new EntitySearchResult('delivery_time', \count($deliveryTimes), new DeliveryTimeCollection($deliveryTimes), null, new Criteria(), Context::createDefaultContext());
     }
 }
