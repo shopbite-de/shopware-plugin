@@ -21,7 +21,8 @@ use Shopware\Core\Framework\Uuid\Uuid;
  * language first), else the former plugin setting defaultDeliveryTime (the values set explicitly on
  * the method's channels when they agree, else the global value, else 30). Delivery times are never
  * changed, only assigned; the previous one is remembered (MinuteDeliveryTimes), so deactivating the
- * plugin can put it back. Methods in no sales channel stay as they are. Afterwards the custom field, its key in the shipping method translations
+ * plugin can put it back. While the plugin is inactive (install, update of an inactive plugin) the
+ * methods are not changed, only the plan is remembered, and activating the plugin assigns it. Methods in no sales channel stay as they are. Afterwards the custom field, its key in the shipping method translations
  * and the former setting are removed. Running it again changes nothing.
  *
  * @psalm-api registered by Shopware's migration collection
@@ -60,6 +61,10 @@ final class Migration1795651200ShippingMethodDeliveryTime extends MigrationStep
         }
 
         $this->createTable($connection);
+        // Core cannot calculate carts with minutes: while the plugin is inactive (install runs the
+        // migrations before activate, or an update of an inactive plugin) the conversion is only
+        // planned in the table and activate() assigns it.
+        $active = (bool) $connection->fetchOne('SELECT active FROM plugin WHERE name = :name', ['name' => 'ShopBitePlugin']);
         $deliveryTimes = new MinuteDeliveryTimes($connection);
         $minuteDeliveryTimes = null;
         $locales = null;
@@ -80,14 +85,16 @@ final class Migration1795651200ShippingMethodDeliveryTime extends MigrationStep
                 $locales ??= $deliveryTimes->locales();
                 $minuteDeliveryTimes[$minutes] = $deliveryTimes->create($minutes, $locales);
             }
-            $connection->executeStatement(
-                'UPDATE shipping_method SET delivery_time_id = :deliveryTime, updated_at = :now WHERE id = :id',
-                [
-                    'deliveryTime' => Uuid::fromHexToBytes($minuteDeliveryTimes[$minutes]),
-                    'now' => self::now(),
-                    'id' => Uuid::fromHexToBytes($id),
-                ],
-            );
+            if ($active) {
+                $connection->executeStatement(
+                    'UPDATE shipping_method SET delivery_time_id = :deliveryTime, updated_at = :now WHERE id = :id',
+                    [
+                        'deliveryTime' => Uuid::fromHexToBytes($minuteDeliveryTimes[$minutes]),
+                        'now' => self::now(),
+                        'id' => Uuid::fromHexToBytes($id),
+                    ],
+                );
+            }
             $previous = $row['delivery_time_id'];
             $deliveryTimes->remember($id, \is_string($previous) ? $previous : null, $minuteDeliveryTimes[$minutes]);
         }

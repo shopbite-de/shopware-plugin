@@ -155,40 +155,70 @@ final readonly class MinuteDeliveryTimes
     }
 
     /**
-     * Puts the previous delivery time back on every shipping method the plugin moved to minutes.
-     * Refused (nothing changed) while a shipping method without a remembered previous delivery
-     * time or a product uses a minute delivery time, since Shopware cannot calculate their carts
-     * without the plugin.
+     * Puts the previous delivery time back on every shipping method the plugin moved to minutes
+     * and that is still on a minute delivery time; that one (also when changed in the Admin since)
+     * is remembered for activate(). Refused (nothing changed) while a shipping method without a
+     * remembered previous delivery time or a product uses a minute delivery time, since Shopware
+     * cannot calculate their carts without the plugin.
      *
      * @throws MinuteDeliveryTimesException
      */
     public function deactivate(): void
     {
-        $blockers = $this->blockers();
-        if ($blockers !== []) {
-            throw MinuteDeliveryTimesException::stillInUse($blockers);
+        $this->assertNotInUse('deactivated');
+        if (!$this->hasTable()) {
+            return;
         }
+        $this->connection->executeStatement(
+            'UPDATE ' . self::TABLE . ' remembered
+             INNER JOIN shipping_method ON shipping_method.id = remembered.shipping_method_id
+             INNER JOIN delivery_time ON delivery_time.id = shipping_method.delivery_time_id
+             SET remembered.minute_delivery_time_id = shipping_method.delivery_time_id, remembered.updated_at = :now
+             WHERE delivery_time.unit = \'minute\' AND remembered.previous_delivery_time_id IS NOT NULL',
+            ['now' => self::now()],
+        );
         $this->connection->executeStatement(
             'UPDATE shipping_method
              INNER JOIN ' . self::TABLE . ' remembered ON remembered.shipping_method_id = shipping_method.id
              INNER JOIN delivery_time ON delivery_time.id = shipping_method.delivery_time_id
-             SET shipping_method.delivery_time_id = remembered.previous_delivery_time_id
+             SET shipping_method.delivery_time_id = remembered.previous_delivery_time_id, shipping_method.updated_at = :now
              WHERE delivery_time.unit = \'minute\' AND remembered.previous_delivery_time_id IS NOT NULL',
+            ['now' => self::now()],
         );
     }
 
     /**
-     * Reassigns the minute delivery times to the methods that are still on the delivery time
-     * deactivate() put back.
+     * Assigns the remembered minute delivery times to the methods that are on their previous
+     * delivery time: after deactivate(), and the conversions the migration only planned while the
+     * plugin was inactive (install, update of an inactive plugin).
      */
     public function activate(): void
     {
+        if (!$this->hasTable()) {
+            return;
+        }
         $this->connection->executeStatement(
             'UPDATE shipping_method
              INNER JOIN ' . self::TABLE . ' remembered ON remembered.shipping_method_id = shipping_method.id
-             SET shipping_method.delivery_time_id = remembered.minute_delivery_time_id
+             SET shipping_method.delivery_time_id = remembered.minute_delivery_time_id, shipping_method.updated_at = :now
              WHERE shipping_method.delivery_time_id = remembered.previous_delivery_time_id',
+            ['now' => self::now()],
         );
+    }
+
+    /**
+     * Refuses deactivating or uninstalling while something would keep a minute delivery time.
+     *
+     * @param 'deactivated'|'uninstalled' $action
+     *
+     * @throws MinuteDeliveryTimesException
+     */
+    public function assertNotInUse(string $action): void
+    {
+        $blockers = $this->blockers();
+        if ($blockers !== []) {
+            throw MinuteDeliveryTimesException::stillInUse($action, $blockers);
+        }
     }
 
     public function dropTable(): void
@@ -196,41 +226,63 @@ final readonly class MinuteDeliveryTimes
         $this->connection->executeStatement('DROP TABLE IF EXISTS ' . self::TABLE);
     }
 
+    private function hasTable(): bool
+    {
+        return $this->connection->fetchOne('SHOW TABLES LIKE \'' . self::TABLE . '\'') !== false;
+    }
+
     /**
      * What would keep a minute delivery time after deactivate(): shipping methods without a
-     * remembered previous delivery time and products (live version).
+     * remembered previous delivery time and products (live version), each list capped.
      *
      * @return list<string>
      */
     private function blockers(): array
     {
-        $blockers = [];
-        foreach ($this->connection->fetchAllAssociative(
+        $remembered = $this->hasTable()
+            ? 'LEFT JOIN ' . self::TABLE . ' remembered ON remembered.shipping_method_id = shipping_method.id
+               WHERE delivery_time.unit = :unit AND remembered.previous_delivery_time_id IS NULL'
+            : 'WHERE delivery_time.unit = :unit';
+        $methods = $this->connection->fetchAllAssociative(
             'SELECT COALESCE(
                     (SELECT name FROM shipping_method_translation WHERE shipping_method_id = shipping_method.id AND language_id = :language),
                     shipping_method.technical_name,
                     LOWER(HEX(shipping_method.id))
-                ) AS name
+                ) AS name, COUNT(*) OVER () AS total
              FROM shipping_method
              INNER JOIN delivery_time ON delivery_time.id = shipping_method.delivery_time_id
-             LEFT JOIN ' . self::TABLE . ' remembered ON remembered.shipping_method_id = shipping_method.id
-             WHERE delivery_time.unit = :unit AND remembered.previous_delivery_time_id IS NULL
+             ' . $remembered . '
              ORDER BY name LIMIT ' . self::MAX_LISTED,
             ['language' => Uuid::fromHexToBytes(Defaults::LANGUAGE_SYSTEM), 'unit' => self::UNIT],
-        ) as $row) {
-            $blockers[] = \sprintf('shipping method "%s"', (string) $row['name']);
-        }
-        foreach ($this->connection->fetchAllAssociative(
-            'SELECT product.product_number AS name
+        );
+        $products = $this->connection->fetchAllAssociative(
+            'SELECT product.product_number AS name, COUNT(*) OVER () AS total
              FROM product INNER JOIN delivery_time ON delivery_time.id = product.delivery_time_id
              WHERE delivery_time.unit = :unit AND product.version_id = :version
              ORDER BY name LIMIT ' . self::MAX_LISTED,
             ['unit' => self::UNIT, 'version' => Uuid::fromHexToBytes(Defaults::LIVE_VERSION)],
-        ) as $row) {
-            $blockers[] = \sprintf('product "%s"', (string) $row['name']);
+        );
+
+        return [...self::listed($methods, 'shipping method', 'shipping methods'), ...self::listed($products, 'product', 'products')];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $rows name and total (before the limit)
+     *
+     * @return list<string>
+     */
+    private static function listed(array $rows, string $singular, string $plural): array
+    {
+        $listed = [];
+        foreach ($rows as $row) {
+            $listed[] = \sprintf('%s "%s"', $singular, (string) $row['name']);
+        }
+        $more = ($rows === [] ? 0 : (int) $rows[0]['total']) - \count($rows);
+        if ($more > 0) {
+            $listed[] = \sprintf('%d more %s', $more, $more === 1 ? $singular : $plural);
         }
 
-        return $blockers;
+        return $listed;
     }
 
     private static function now(): string

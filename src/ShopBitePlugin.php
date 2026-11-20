@@ -35,7 +35,9 @@ final class ShopBitePlugin extends Plugin
     #[Override]
     public function uninstall(UninstallContext $uninstallContext): void
     {
-        // Already done by deactivate(); refuses again while minute delivery times are left.
+        // Shopware deactivates the plugin first; this refuses again for an inactive plugin that
+        // got minute delivery times since, before anything is removed.
+        $this->getMinuteDeliveryTimes()->assertNotInUse('uninstalled');
         $this->getMinuteDeliveryTimes()->deactivate();
 
         parent::uninstall($uninstallContext);
@@ -48,6 +50,19 @@ final class ShopBitePlugin extends Plugin
         $this->getCustomFieldsInstaller()->uninstall($uninstallContext->getContext());
         $this->getOrderPrinterRoleInstaller()->uninstall($uninstallContext->getContext());
         $this->getStaffRoleInstaller()->uninstall($uninstallContext->getContext());
+    }
+
+    /**
+     * Shopware removes the migration records before uninstall() (without keep user data), so the
+     * check that refuses the uninstall runs here first: a refused uninstall keeps them and a later
+     * update does not run every migration again.
+     */
+    #[Override]
+    public function removeMigrations(): void
+    {
+        $this->getMinuteDeliveryTimes()->assertNotInUse('uninstalled');
+
+        parent::removeMigrations();
     }
 
     #[Override]
